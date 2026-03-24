@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MyMKSWay Portfolio</title>
+  <title>MyMKSWay Portfolio Home</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
@@ -11,6 +11,7 @@
 </head>
 <body>
   <div id="root"></div>
+  <script>window.MKS_PAGE = "portfolio";</script>
   <script src="app-config.js"></script>
   <script src="scoring.js"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -28,6 +29,9 @@
       roleLabel: "Project Manager",
       isAdmin: true
     };
+    const pageKey = window.MKS_PAGE || "portfolio";
+    const queryParams = new URLSearchParams(window.location.search);
+    const initialPortfolioView = queryParams.get("view") === "my-projects" ? "my-projects" : "portfolio-home";
 
     const defaultForm = {
       projectName: "",
@@ -101,7 +105,13 @@
         }
 
         const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) ? parsed.map(hydrateProject) : mockProjects.map(hydrateProject);
+        if (!Array.isArray(parsed)) {
+          return mockProjects.map(hydrateProject);
+        }
+
+        const seededIds = new Set(mockProjects.map((project) => project.id));
+        const customProjects = parsed.filter((project) => !seededIds.has(project.id));
+        return [...customProjects, ...mockProjects].map(hydrateProject);
       } catch {
         return mockProjects.map(hydrateProject);
       }
@@ -134,8 +144,17 @@
       return "progress-blue";
     }
 
+    function getRoadmapPhaseLabel(phaseKey) {
+      if (phaseKey === "submitted") return "Submitted, pending decision board review";
+      if (phaseKey === "discovery") return "Discovery and framing";
+      if (phaseKey === "definition") return "Definition and planning";
+      if (phaseKey === "delivery") return "Delivery and learning";
+      if (phaseKey === "closure") return "Closure and benefit realization";
+      return "To be confirmed";
+    }
+
     function projectStatusFromForm(status) {
-      return status === "Submitted" ? "Planning" : status;
+      return status;
     }
 
     function iconPath(icon) {
@@ -152,6 +171,15 @@
         person: "M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8M5 21a7 7 0 0 1 14 0"
       };
       return icons[icon] || icons.grid;
+    }
+
+    function getNavHref(key) {
+      if (key === "portfolio-home") return "index.html";
+      if (key === "my-projects") return "index.html?view=my-projects";
+      if (key === "roadmap") return "roadmap.html";
+      if (key === "reports") return "reports.html";
+      if (key === "settings") return "settings.html";
+      return "index.html";
     }
 
     function Icon({ icon, className = "nav-svg" }) {
@@ -258,7 +286,7 @@
       );
     }
 
-    function Modal({ isOpen, onClose, titleId, children }) {
+    function Modal({ isOpen, onClose, titleId, children, panelClassName = "" }) {
       useEffect(() => {
         if (!isOpen) return undefined;
         const onKeyDown = (event) => {
@@ -273,7 +301,7 @@
       return (
         <div className="modal show" aria-hidden={!isOpen}>
           <div className="modal-backdrop" onClick={onClose}></div>
-          <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+          <div className={`modal-panel ${panelClassName}`.trim()} role="dialog" aria-modal="true" aria-labelledby={titleId}>
             {children}
           </div>
         </div>
@@ -521,53 +549,62 @@
       const [managerFilter, setManagerFilter] = useState("All PMs");
       const [sponsorFilter, setSponsorFilter] = useState("All sponsors");
       const [statusFilter, setStatusFilter] = useState("All statuses");
-      const [isOverallOpen, setIsOverallOpen] = useState(false);
+      const [isPortfolioViewOpen, setIsPortfolioViewOpen] = useState(false);
+      const [expandedProjectIds, setExpandedProjectIds] = useState([]);
+      const currentYear = 2026;
+      const portfolioYears = [2026, 2027];
+      const [portfolioYear, setPortfolioYear] = useState(2026);
 
       const monthlySegments = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
       ];
-      const segments = scale === "monthly"
+      const quarterlySegments = ["Q1", "Q2", "Q3", "Q4"];
+      const lifecycleSegments = scale === "monthly"
         ? monthlySegments
         : scale === "quarterly"
-          ? ["Q1", "Q2", "Q3", "Q4"]
+          ? quarterlySegments
           : ["2026"];
-      const segmentCount = scale === "monthly" ? 12 : scale === "quarterly" ? 4 : 1;
+      const lifecycleSegmentCount = scale === "monthly" ? 12 : scale === "quarterly" ? 4 : 1;
       const displayStart = (month) => scale === "monthly" ? month : scale === "quarterly" ? Math.ceil(month / 3) : 1;
       const displayEnd = (month) => scale === "monthly" ? month : scale === "quarterly" ? Math.ceil(month / 3) : 1;
+      const portfolioSegments = scale === "monthly"
+        ? monthlySegments
+        : scale === "quarterly"
+          ? quarterlySegments
+          : [`${portfolioYear}`];
+      const portfolioSegmentCount = scale === "monthly" ? 12 : scale === "quarterly" ? 4 : 1;
+      const selectedYearStartIndex = portfolioYear === 2026 ? 1 : 13;
+      const selectedYearEndIndex = portfolioYear === 2026 ? 12 : 24;
 
       const phaseTemplates = [
         {
           key: "discovery",
-          label: "Discovery and framing",
+          label: "Discovery",
           duration: 2,
           tone: "slate",
-          milestoneLabel: "Discovery sign-off",
-          tasks: (project) => [`Kick-off and stakeholder framing`, `Confirm why ${project.name} is needed`]
+          tasks: (project) => [`Discovery work`, `Confirm scope and needs for ${project.name}`]
         },
         {
           key: "definition",
-          label: "Definition and planning",
+          label: "Planning",
           duration: 2,
           tone: "blue",
-          milestoneLabel: "Plan approved",
-          tasks: (project) => [`Scope and governance plan`, `Confirm budget and sponsor decisions`]
+          tasks: () => [`Plan and design`, `Confirm approach, budget, and governance`]
         },
         {
           key: "delivery",
-          label: "Delivery and learning",
+          label: "Delivery",
           duration: 4,
           tone: "teal",
-          milestoneLabel: "Key delivery milestone",
-          tasks: (project) => [`Deliver ${project.projectType.toLowerCase()}`, `Track adoption and lessons learned`]
+          tasks: (project) => [`Delivery in flight`, `Build and roll out the ${project.projectType.toLowerCase()}`]
         },
         {
           key: "closure",
-          label: "Closure and benefit realization",
+          label: "Closure",
           duration: 2,
           tone: "amber",
-          milestoneLabel: "Benefits checkpoint",
-          tasks: () => [`Transition into BAU`, `Confirm benefits and close actions`]
+          tasks: () => [`Close and hand over`, `Confirm benefits and BAU ownership`]
         }
       ];
 
@@ -576,8 +613,8 @@
       const projectNames = [...new Set(projects.filter((project) => project.status !== "Draft").map((project) => project.name))];
       const statuses = [...new Set(projects.filter((project) => project.status !== "Draft").map((project) => project.status))];
 
-      const roadmapProjects = projects
-        .filter((project) => project.status !== "Draft")
+      const roadmapSourceProjects = projects.filter((project) => project.status !== "Draft");
+      const roadmapProjects = roadmapSourceProjects
         .filter((project) => {
           const haystack = [project.name, project.projectManager, project.primarySponsor, project.department, project.projectType].join(" ").toLowerCase();
           const matchesSearch = !searchTerm || haystack.includes(searchTerm.toLowerCase());
@@ -588,92 +625,196 @@
           return matchesSearch && matchesProject && matchesManager && matchesSponsor && matchesStatus;
         })
         .map((project, index) => {
-          const startMonth = Math.min(4, 1 + (index % 4));
-          let currentMonth = startMonth;
-          const totalPhaseUnits = phaseTemplates.reduce((sum, phase) => sum + phase.duration, 0);
-          let completedUnits = (project.completionPercentage / 100) * totalPhaseUnits;
+          const startMonth = project.timelineStartMonth || Math.min(4, 1 + (index % 4));
+          const endMonth = project.timelineEndMonth || Math.min(12, startMonth + Math.max(3, Math.min(10, 4 + Math.round(project.completionPercentage / 20))) - 1);
+          const assignedYear = project.timelineYear || (index < Math.ceil(roadmapSourceProjects.length * 0.75) ? 2026 : 2027);
+          const timelineStartIndex = (assignedYear === 2026 ? 0 : 12) + startMonth;
+          const timelineEndIndex = Math.min(24, (assignedYear === 2026 ? 0 : 12) + endMonth);
+          const currentPhaseProgress = typeof project.currentPhaseProgress === "number" ? project.currentPhaseProgress : project.completionPercentage;
+          const phases = project.roadmapPhase === "submitted"
+            ? [{
+                key: "submitted",
+                label: "Submitted, pending decision board review",
+                tone: "slate",
+                start: startMonth,
+                end: endMonth,
+                displayStart: displayStart(startMonth),
+                displayEnd: displayEnd(endMonth),
+                phaseProgress: Math.max(0, Math.min(100, currentPhaseProgress)),
+                milestoneMonth: endMonth,
+                milestoneSegment: displayEnd(endMonth),
+                currentTask: "Submitted and waiting for decision board review",
+                supportingTask: "No discovery, planning, or delivery activity starts until the board confirms the next step."
+              }]
+            : (() => {
+                let currentMonth = startMonth;
+                const phaseOrder = phaseTemplates.map((template) => template.key);
+                const currentPhaseIndex = Math.max(0, phaseOrder.indexOf(project.roadmapPhase || "discovery"));
 
-          const phases = phaseTemplates.map((template) => {
-            const start = currentMonth;
-            const end = Math.min(12, currentMonth + template.duration - 1);
-            const progressUnits = Math.max(0, Math.min(template.duration, completedUnits));
-            const phaseProgress = Math.round((progressUnits / template.duration) * 100);
-            completedUnits = Math.max(0, completedUnits - template.duration);
-            currentMonth = end + 1;
-            const tasks = template.tasks(project);
-            const subtaskEnd = Math.min(end, start + Math.max(0, template.duration - 1));
+                return phaseTemplates.map((template, phaseIndex) => {
+                  const start = currentMonth;
+                  const end = Math.min(12, currentMonth + template.duration - 1);
+                  currentMonth = end + 1;
+                  const tasks = template.tasks(project);
+                  let phaseProgress = 0;
+                  if (phaseIndex < currentPhaseIndex) {
+                    phaseProgress = 100;
+                  } else if (phaseIndex === currentPhaseIndex) {
+                    phaseProgress = Math.max(0, Math.min(100, currentPhaseProgress));
+                  }
 
-            return {
-              ...template,
-              start,
-              end,
-              displayStart: displayStart(start),
-              displayEnd: displayEnd(end),
-              phaseProgress,
-              milestoneMonth: end,
-              milestoneSegment: displayEnd(end),
-              currentTask: tasks[0],
-              supportingTask: tasks[1]
-            };
-          });
+                  return {
+                    ...template,
+                    start,
+                    end,
+                    displayStart: displayStart(start),
+                    displayEnd: displayEnd(end),
+                    phaseProgress,
+                    milestoneMonth: end,
+                    milestoneSegment: displayEnd(end),
+                    currentTask: tasks[0],
+                    supportingTask: tasks[1]
+                  };
+                });
+              })();
 
-          return { project, phases };
+          let portfolioTone = "blue";
+          let portfolioCategory = "IT and business delivery";
+          if (project.status === "Submitted") {
+            portfolioTone = "slate";
+            portfolioCategory = "Submitted, needs decision";
+          } else if (project.name === "The MKS Way") {
+            portfolioTone = "purple";
+            portfolioCategory = "PMO programme";
+          } else if (project.department === "HR") {
+            portfolioTone = "rose";
+            portfolioCategory = "HR transformation";
+          } else if (project.department === "Facilities") {
+            portfolioTone = "amber";
+            portfolioCategory = "Facilities planning";
+          }
+
+          return {
+            project,
+            phases,
+            portfolioYear: assignedYear,
+            timelineStartIndex,
+            timelineEndIndex,
+            portfolioTone,
+            portfolioCategory
+          };
         });
 
       const laneStyle = {
-        "--roadmap-segments": segmentCount
+        "--roadmap-segments": lifecycleSegmentCount
       };
       const scales = [
         { key: "monthly", label: "Monthly" },
         { key: "quarterly", label: "Quarterly" },
         { key: "yearly", label: "Yearly" }
       ];
+      const portfolioViewProjects = roadmapProjects
+        .map((item) => {
+          if (scale === "yearly") {
+            return item.portfolioYear === portfolioYear
+              ? { ...item, visibleStart: 1, visibleEnd: 1 }
+              : null;
+          }
 
-      const OverallRoadmapModal = () => (
-        <Modal isOpen={isOverallOpen} onClose={() => setIsOverallOpen(false)} titleId="overallRoadmapTitle">
+          const clippedStart = Math.max(item.timelineStartIndex, selectedYearStartIndex);
+          const clippedEnd = Math.min(item.timelineEndIndex, selectedYearEndIndex);
+          if (clippedStart > clippedEnd) return null;
+
+          const startMonthWithinYear = clippedStart - selectedYearStartIndex + 1;
+          const endMonthWithinYear = clippedEnd - selectedYearStartIndex + 1;
+          const visibleStart = scale === "monthly" ? startMonthWithinYear : Math.ceil(startMonthWithinYear / 3);
+          const visibleEnd = scale === "monthly" ? endMonthWithinYear : Math.ceil(endMonthWithinYear / 3);
+
+          return { ...item, visibleStart, visibleEnd };
+        })
+        .filter(Boolean);
+      const departmentOrder = { IT: 1, PMO: 2, Marketing: 3, People: 4, HR: 5, Facilities: 6 };
+      const sortByDepartment = (items, projectSelector = (item) => item.project || item) => [...items].sort((left, right) => {
+        const leftProject = projectSelector(left);
+        const rightProject = projectSelector(right);
+        const leftOrder = departmentOrder[leftProject.department] || 99;
+        const rightOrder = departmentOrder[rightProject.department] || 99;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return leftProject.name.localeCompare(rightProject.name);
+      });
+      const groupedPortfolioViewProjects = sortByDepartment(portfolioViewProjects);
+      const groupedRoadmapProjects = sortByDepartment(roadmapProjects);
+
+      const toggleRoadmapProject = (projectId) => {
+        setExpandedProjectIds((current) => (
+          current.includes(projectId)
+            ? current.filter((id) => id !== projectId)
+            : [...current, projectId]
+        ));
+      };
+
+      const PortfolioViewModal = () => (
+        <Modal isOpen={isPortfolioViewOpen} onClose={() => setIsPortfolioViewOpen(false)} titleId="portfolioViewTitle" panelClassName="modal-panel-fullscreen modal-panel-portfolio-view">
           <div className="detail-modal overall-roadmap-modal">
             <div className="detail-header">
               <div>
                 <p className="eyebrow">Roadmap</p>
-                <h2 id="overallRoadmapTitle" className="detail-title">Overall roadmap</h2>
+                <h2 id="portfolioViewTitle" className="detail-title">Portfolio view</h2>
               </div>
-              <button className="icon-btn" type="button" aria-label="Close overall roadmap" onClick={() => setIsOverallOpen(false)}><Icon icon="close" className="icon-only-svg" /></button>
+              <button className="icon-btn" type="button" aria-label="Close portfolio view" onClick={() => setIsPortfolioViewOpen(false)}><Icon icon="close" className="icon-only-svg" /></button>
             </div>
 
-            <div className="roadmap-board roadmap-board-compact">
-              <div className="roadmap-grid-header">
-                <div className="roadmap-grid-title">Project</div>
-                <div className="roadmap-segment-row">
-                  {monthlySegments.map((segment) => <div key={`overall-${segment}`} className="roadmap-segment-cell">{segment}</div>)}
+            <div className="roadmap-controls roadmap-controls-compact">
+              <div className="roadmap-toggle">
+                {scales.map((item) => (
+                  <button key={`portfolio-${item.key}`} className={`secondary-btn roadmap-toggle-btn ${scale === item.key ? "roadmap-toggle-btn-active" : ""}`} type="button" onClick={() => onScaleChange(item.key)}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <select className="roadmap-filter-select roadmap-year-select" value={portfolioYear} onChange={(event) => setPortfolioYear(Number(event.target.value))}>
+                {portfolioYears.map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </div>
+
+            <div className="portfolio-legend">
+              <span className="portfolio-legend-item"><span className="portfolio-legend-dot portfolio-legend-blue"></span>IT and business delivery</span>
+              <span className="portfolio-legend-item"><span className="portfolio-legend-dot portfolio-legend-purple"></span>PMO programme</span>
+              <span className="portfolio-legend-item"><span className="portfolio-legend-dot portfolio-legend-rose"></span>HR transformation</span>
+              <span className="portfolio-legend-item"><span className="portfolio-legend-dot portfolio-legend-amber"></span>Facilities planning</span>
+              <span className="portfolio-legend-item"><span className="portfolio-legend-dot portfolio-legend-slate"></span>Submitted, needs decision</span>
+            </div>
+
+            <div className="roadmap-board roadmap-board-compact portfolio-timeline-board">
+              <div className="portfolio-timeline-header">
+                <div className="roadmap-grid-title">Projects</div>
+                <div className="roadmap-segment-row portfolio-segment-row">
+                  {portfolioSegments.map((segment) => <div key={`portfolio-${segment}`} className="roadmap-segment-cell">{segment}</div>)}
                 </div>
               </div>
 
-              <div className="roadmap-list roadmap-list-compact">
-                {roadmapProjects.map((item) => {
-                  const projectStart = Math.min(...item.phases.map((phase) => phase.start));
-                  const projectEnd = Math.max(...item.phases.map((phase) => phase.end));
-                  return (
-                    <article className="roadmap-card roadmap-card-compact" key={`overall-card-${item.project.id}`}>
-                      <div className="roadmap-lane roadmap-lane-compact">
-                        <div className="roadmap-lane-label roadmap-lane-label-project">
-                          <strong>{item.project.name}</strong>
-                          <span>{item.project.status} · {item.project.completionPercentage}% complete</span>
-                        </div>
-                        <div className="roadmap-track" style={{ "--roadmap-segments": 12 }}>
-                          <div
-                            className="roadmap-task-bar roadmap-bar-blue"
-                            style={{
-                              left: `${((projectStart - 1) / 12) * 100}%`,
-                              width: `${((projectEnd - projectStart + 1) / 12) * 100}%`
-                            }}
-                          >
-                            <span className="roadmap-task-label">{item.project.projectType}</span>
-                          </div>
-                        </div>
+              <div className="portfolio-timeline-body">
+                {groupedPortfolioViewProjects.map((item) => (
+                  <div className="portfolio-timeline-row" key={`portfolio-row-${item.project.id}`}>
+                    <div className="portfolio-timeline-project">
+                      <strong>{item.project.name}</strong>
+                      <span><bdi className="department-badge">{item.project.department}</bdi>{item.project.status}</span>
+                    </div>
+                    <div className="roadmap-track portfolio-timeline-track" style={{ "--roadmap-segments": portfolioSegmentCount }}>
+                      <div
+                        className={`roadmap-task-bar portfolio-task-bar roadmap-bar-${item.portfolioTone}`}
+                        style={{
+                          left: `${((item.visibleStart - 1) / portfolioSegmentCount) * 100}%`,
+                          width: `${((item.visibleEnd - item.visibleStart + 1) / portfolioSegmentCount) * 100}%`
+                        }}
+                      >
+                        <div className={`roadmap-task-progress roadmap-bar-progress-${item.portfolioTone}`} style={{ width: `${item.project.completionPercentage}%` }}></div>
+                        <span className="roadmap-task-percent">{item.project.completionPercentage}%</span>
                       </div>
-                    </article>
-                  );
-                })}
+                    </div>
+                  </div>
+                ))}
+                {!portfolioViewProjects.length && <p className="empty-state">No projects are mapped to the selected year in the portfolio view.</p>}
               </div>
             </div>
           </div>
@@ -704,70 +845,171 @@
                   </button>
                 ))}
               </div>
-              <button className="secondary-btn roadmap-overall-btn" type="button" onClick={() => setIsOverallOpen(true)}>Overall roadmap</button>
+              <button className="secondary-btn roadmap-overall-btn portfolio-view-trigger" type="button" onClick={() => setIsPortfolioViewOpen(true)}>Portfolio view</button>
             </div>
 
             <div className="roadmap-board">
               <div className="roadmap-grid-header">
                 <div className="roadmap-grid-title">Project lifecycle</div>
                 <div className="roadmap-segment-row">
-                  {segments.map((segment) => <div key={segment} className="roadmap-segment-cell">{segment}</div>)}
+                  {lifecycleSegments.map((segment) => <div key={segment} className="roadmap-segment-cell">{segment}</div>)}
                 </div>
               </div>
 
               <div className="roadmap-list">
-                {roadmapProjects.map((item) => (
-                  <article className="roadmap-card" key={`roadmap-${item.project.id}`}>
-                    <div className="roadmap-project-header">
-                      <div>
-                        <h3>{item.project.name}</h3>
-                        <p>{item.project.department} · Sponsor: {item.project.primarySponsor} · PM: {item.project.projectManager}</p>
+                {groupedRoadmapProjects.map((item) => {
+                  const isExpanded = expandedProjectIds.length === 0 ? roadmapProjects[0]?.project.id === item.project.id : expandedProjectIds.includes(item.project.id);
+                  return (
+                    <article className="roadmap-card" key={`roadmap-${item.project.id}`}>
+                      <div className="roadmap-project-header">
+                        <div>
+                          <h3>{item.project.name}</h3>
+                          <p className="roadmap-project-summary"><bdi className="department-badge">{item.project.department}</bdi>{getRoadmapPhaseLabel(item.project.roadmapPhase)}</p>
+                          <p className="roadmap-project-owners">Sponsor: {item.project.primarySponsor} · PM: {item.project.projectManager}</p>
+                        </div>
+                        <div className="roadmap-project-badges">
+                          <span className={`status-pill ${getStatusClass(item.project.status)}`}>{item.project.status}</span>
+                          <span className="roadmap-completion-badge">{item.project.completionPercentage}% complete</span>
+                          <button className="secondary-btn roadmap-accordion-btn" type="button" onClick={() => toggleRoadmapProject(item.project.id)}>
+                            {isExpanded ? "Collapse" : "Expand"}
+                          </button>
+                        </div>
                       </div>
-                      <div className="roadmap-project-badges">
-                        <span className={`status-pill ${getStatusClass(item.project.status)}`}>{item.project.status}</span>
-                        <span className="roadmap-completion-badge">{item.project.completionPercentage}% complete</span>
-                      </div>
-                    </div>
 
-                    <div className="roadmap-phase-list">
-                      {item.phases.map((phase) => (
-                        <div className="roadmap-phase-row" key={`${item.project.id}-${phase.key}`}>
-                          <div className="roadmap-phase-meta">
-                            <p className="roadmap-phase-title">{phase.label}</p>
-                            <p className="roadmap-phase-task">{phase.currentTask}</p>
-                            <p className="roadmap-phase-support">{phase.supportingTask}</p>
-                          </div>
+                      {isExpanded && <div className="roadmap-phase-list roadmap-phase-list-simple">
+                        {item.phases.map((phase) => (
+                          <div className="roadmap-phase-row roadmap-phase-row-simple" key={`${item.project.id}-${phase.key}`}>
+                            <div className="roadmap-phase-meta">
+                              <p className="roadmap-phase-title">{phase.label}</p>
+                              <p className="roadmap-phase-task">{phase.currentTask}</p>
+                            </div>
 
-                          <div className="roadmap-phase-track-wrap">
-                            <div className="roadmap-track" style={laneStyle}>
-                              <div
-                                className={`roadmap-task-bar roadmap-bar-${phase.tone}`}
-                                style={{
-                                  left: `${((phase.displayStart - 1) / segmentCount) * 100}%`,
-                                  width: `${((phase.displayEnd - phase.displayStart + 1) / segmentCount) * 100}%`
-                                }}
-                              >
-                                <div className={`roadmap-task-progress roadmap-bar-progress-${phase.tone}`} style={{ width: `${phase.phaseProgress}%` }}></div>
-                                <span className="roadmap-task-label">{phase.currentTask}</span>
-                                <span className="roadmap-task-percent">{phase.phaseProgress}%</span>
-                                <div className="roadmap-milestone roadmap-milestone-end" aria-label={`Milestone for ${phase.label}`}></div>
+                            <div className="roadmap-phase-track-wrap">
+                              <div className="roadmap-track" style={laneStyle}>
+                                <div
+                                  className={`roadmap-task-bar roadmap-bar-${phase.tone}`}
+                                  style={{
+                                    left: `${((phase.displayStart - 1) / lifecycleSegmentCount) * 100}%`,
+                                    width: `${((phase.displayEnd - phase.displayStart + 1) / lifecycleSegmentCount) * 100}%`
+                                  }}
+                                >
+                                  <div className={`roadmap-task-progress roadmap-bar-progress-${phase.tone}`} style={{ width: `${phase.phaseProgress}%` }}></div>
+                                  <span className="roadmap-task-percent">{phase.phaseProgress}%</span>
+                                  <div className="roadmap-milestone roadmap-milestone-end" aria-label={`Milestone for ${phase.label}`}></div>
+                                </div>
                               </div>
                             </div>
                           </div>
-
-                          <div className="roadmap-phase-progress">{phase.phaseProgress}%</div>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
-                ))}
+                        ))}
+                      </div>}
+                    </article>
+                  );
+                })}
               </div>
 
               {!roadmapProjects.length && <p className="empty-state">No roadmap items match the current search and filter settings.</p>}
             </div>
           </section>
 
-          <OverallRoadmapModal />
+          <PortfolioViewModal />
+        </>
+      );
+    }
+
+    function ReportsView({ projects }) {
+      const reportProjects = projects.filter((project) => project.status !== "Draft");
+      const linkedReports = reportProjects.filter((project) => project.healthCheckReportUrl);
+
+      return (
+        <>
+          <section className="stat-grid">
+            <article className="stat-card stat-blue"><div className="stat-chip"></div><p className="stat-label">Reportable projects</p><p className="stat-value">{reportProjects.length}</p><div className="stat-subtext">Live portfolio items</div></article>
+            <article className="stat-card stat-green"><div className="stat-chip"></div><p className="stat-label">Health checks</p><p className="stat-value">{linkedReports.length}</p><div className="stat-subtext">Linked report pages</div></article>
+            <article className="stat-card stat-orange"><div className="stat-chip"></div><p className="stat-label">Active delivery</p><p className="stat-value">{reportProjects.filter((project) => project.status === "Active").length}</p><div className="stat-subtext">Currently in flight</div></article>
+            <article className="stat-card stat-grey"><div className="stat-chip"></div><p className="stat-label">Completed</p><p className="stat-value">{reportProjects.filter((project) => project.status === "Completed").length}</p><div className="stat-subtext">Closed and reported</div></article>
+          </section>
+
+          <section className="content-panel">
+            <div className="section-header">
+              <p className="section-title">Reports</p>
+              <p className="section-copy">Open project health checks and portfolio reporting pages from one place.</p>
+            </div>
+
+            <div className="report-card-grid">
+              {reportProjects.map((project) => (
+                <article className="report-card" key={`report-${project.id}`}>
+                  <div className="report-card-header">
+                    <div>
+                      <p className="project-main">{project.name}</p>
+                      <p className="project-sub">{project.projectType}</p>
+                    </div>
+                    <span className={`status-pill ${getStatusClass(project.status)}`}>{project.status}</span>
+                  </div>
+                  <div className="report-meta-grid">
+                    <div><span>Manager</span><strong>{project.projectManager}</strong></div>
+                    <div><span>Sponsor</span><strong>{project.primarySponsor}</strong></div>
+                    <div><span>Department</span><strong>{project.department}</strong></div>
+                    <div><span>Completion</span><strong>{project.completionPercentage}%</strong></div>
+                  </div>
+                  <div className="report-card-actions">
+                    {project.healthCheckReportUrl ? (
+                      <a className="primary-btn report-link-btn" href={project.healthCheckReportUrl}>Open health check</a>
+                    ) : (
+                      <span className="table-action-placeholder">No linked report yet</span>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </>
+      );
+    }
+
+    function SettingsView({ projects }) {
+      const activeProjects = projects.filter((project) => project.status === "Active").length;
+      const draftProjects = projects.filter((project) => project.status === "Draft").length;
+
+      return (
+        <>
+          <section className="content-panel">
+            <div className="section-header">
+              <p className="section-title">Settings</p>
+              <p className="section-copy">Simple application settings and reference information for this prototype.</p>
+            </div>
+
+            <div className="settings-card-grid">
+              <article className="settings-card">
+                <p className="settings-card-title">Portfolio defaults</p>
+                <div className="settings-metric-row">
+                  <div><span>Total projects</span><strong>{projects.length}</strong></div>
+                  <div><span>Active projects</span><strong>{activeProjects}</strong></div>
+                  <div><span>Draft projects</span><strong>{draftProjects}</strong></div>
+                </div>
+              </article>
+
+              <article className="settings-card">
+                <p className="settings-card-title">Document templates</p>
+                <div className="settings-list">
+                  {Object.entries(documentTemplates).map(([name, meta]) => (
+                    <div className="settings-list-item" key={name}>
+                      <strong>{name}</strong>
+                      <span>{meta.note}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="settings-card">
+                <p className="settings-card-title">Prototype notes</p>
+                <div className="settings-list">
+                  <div className="settings-list-item"><strong>Data source</strong><span>Portfolio data is currently mocked and persisted in browser storage for the prototype.</span></div>
+                  <div className="settings-list-item"><strong>Profile management</strong><span>Profile editing stays on the portfolio home page, as requested.</span></div>
+                  <div className="settings-list-item"><strong>Navigation</strong><span>Portfolio, roadmap, reports, and settings now open on separate HTML pages.</span></div>
+                </div>
+              </article>
+            </div>
+          </section>
         </>
       );
     }
@@ -780,7 +1022,7 @@
       const [selectedProject, setSelectedProject] = useState(null);
       const [selectedPersonName, setSelectedPersonName] = useState("");
       const [isNavOpen, setIsNavOpen] = useState(false);
-      const [activeNavKey, setActiveNavKey] = useState("portfolio-home");
+      const [activeNavKey] = useState(pageKey === "portfolio" ? initialPortfolioView : pageKey);
       const [editingDraftId, setEditingDraftId] = useState(storedDraftState.editingDraftId);
       const [formValues, setFormValues] = useState(storedDraftState.formValues);
       const [search, setSearch] = useState("");
@@ -860,15 +1102,24 @@
       const departments = [...new Set(accessibleProjects.map((project) => project.department))];
       const managers = [...new Set(accessibleProjects.map((project) => project.projectManager))];
       const sponsors = [...new Set(accessibleProjects.map((project) => project.primarySponsor))];
-      const isRoadmapView = activeNavKey === "roadmap";
-      const isMyProjectsView = activeNavKey === "my-projects";
-      const pageTitle = isRoadmapView ? "Roadmap" : isMyProjectsView ? "My projects" : "Project portfolio";
-      const pageSectionTitle = isRoadmapView ? "Roadmap" : isMyProjectsView ? "My Projects" : "Portfolio Home";
-      const pageSectionCopy = isRoadmapView
-        ? "A multiple-project roadmap view with simple timeline filters."
-        : isMyProjectsView
-          ? "Projects where you are the manager, sponsor, or draft owner."
-          : "All visible projects across the portfolio.";
+      const reportProjects = accessibleProjects.filter((project) => project.status !== "Draft");
+      const isPortfolioPage = pageKey === "portfolio";
+      const isRoadmapView = pageKey === "roadmap";
+      const isReportsView = pageKey === "reports";
+      const isSettingsView = pageKey === "settings";
+      const isMyProjectsView = isPortfolioPage && activeNavKey === "my-projects";
+      const pageTitle = isRoadmapView ? "Roadmap" : isReportsView ? "Reports" : isSettingsView ? "Settings" : isMyProjectsView ? "My projects" : "Project portfolio";
+      const pageSectionTitle = isMyProjectsView ? "My Projects" : "Portfolio Home";
+      const pageSectionCopy = isMyProjectsView
+        ? "Projects where you are the manager, sponsor, or draft owner."
+        : "All visible projects across the portfolio.";
+      const pageCountBadge = isRoadmapView
+        ? `${reportProjects.length} roadmap projects`
+        : isReportsView
+          ? `${reportProjects.length} reportable projects`
+          : isSettingsView
+            ? `${Object.keys(documentTemplates).length} template controls`
+            : `${filteredProjects.length} projects`;
       const currentProfile = selectedPersonName
         ? {
             firstName: selectedPersonName.split(" ")[0] || selectedPersonName,
@@ -1084,12 +1335,6 @@
       };
 
       const openProject = (project) => setSelectedProject(project);
-      const onNavClick = (key) => {
-        if (key === "portfolio-home" || key === "my-projects" || key === "roadmap") {
-          setActiveNavKey(key);
-          setIsNavOpen(false);
-        }
-      };
 
       const onProjectRowKeyDown = (event, project) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -1104,6 +1349,9 @@
             <div className={`sidebar-overlay ${isNavOpen ? "show" : ""}`} onClick={() => setIsNavOpen(false)}></div>
             <aside className="sidebar">
               <div className="brand-block">
+                <button className="sidebar-close-btn" type="button" aria-label="Close menu" onClick={() => setIsNavOpen(false)}>
+                  <Icon icon="close" className="icon-only-svg" />
+                </button>
                 <div className="logo-row">
                   <img className="brand-logo" src="assets/mks-logo.svg" alt="Moore Kingston Smith logo" />
                   <div className="logo-text">
@@ -1119,22 +1367,32 @@
                 <p className="nav-heading">Navigation</p>
                 <nav className="nav">
                   {sidebarNav.map((item) => (
-                    <button key={item.key} className={`nav-link ${activeNavKey === item.key ? "active" : ""}`} type="button" onClick={() => onNavClick(item.key)}>
+                    <a key={item.key} className={`nav-link ${activeNavKey === item.key ? "active" : ""}`} href={getNavHref(item.key)} onClick={() => setIsNavOpen(false)}>
                       <Icon icon={item.icon} />
                       {item.label}
-                    </button>
+                    </a>
                   ))}
                 </nav>
               </div>
 
               <div className="sidebar-footer">
-                <button className="user-card user-profile-btn" type="button" onClick={() => openProfile(currentUser.name)}>
-                  <div className="avatar">HK</div>
-                  <div className="user-meta">
-                    <strong>{currentUser.name}</strong>
-                    <span>{currentUser.roleLabel}</span>
-                  </div>
-                </button>
+                {isPortfolioPage ? (
+                  <button className="user-card user-profile-btn" type="button" onClick={() => openProfile(currentUser.name)}>
+                    <div className="avatar">HK</div>
+                    <div className="user-meta">
+                      <strong>{currentUser.name}</strong>
+                      <span>{currentUser.roleLabel}</span>
+                    </div>
+                  </button>
+                ) : (
+                  <a className="user-card user-profile-btn" href="index.html">
+                    <div className="avatar">HK</div>
+                    <div className="user-meta">
+                      <strong>{currentUser.name}</strong>
+                      <span>Profile on portfolio home</span>
+                    </div>
+                  </a>
+                )}
               </div>
             </aside>
 
@@ -1148,7 +1406,7 @@
                   </div>
                   <div className="topbar-title">
                     <h1>{pageTitle}</h1>
-                    <span className="count-badge">{isRoadmapView ? `${accessibleProjects.filter((project) => project.status !== "Draft").length} roadmap projects` : `${filteredProjects.length} projects`}</span>
+                    <span className="count-badge">{pageCountBadge}</span>
                   </div>
                 </div>
                 <button className="primary-btn" type="button" onClick={startNewProject}>+ New project</button>
@@ -1157,13 +1415,18 @@
               <div className="content-area">
                 {isRoadmapView ? (
                   <RoadmapView projects={accessibleProjects} scale={roadmapScale} onScaleChange={setRoadmapScale} />
+                ) : isReportsView ? (
+                  <ReportsView projects={accessibleProjects} />
+                ) : isSettingsView ? (
+                  <SettingsView projects={accessibleProjects} />
                 ) : (
                   <>
                     <section className="stat-grid">
-                      <article className="stat-card stat-blue"><div className="stat-chip"></div><p className="stat-label">Total projects</p><p className="stat-value">{filteredProjects.length}</p><div className="stat-subtext">All departments</div></article>
-                      <article className="stat-card stat-green"><div className="stat-chip"></div><p className="stat-label">Active</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Active").length}</p><div className="stat-subtext">In delivery</div></article>
+                      <article className="stat-card stat-navy"><div className="stat-chip"></div><p className="stat-label">Total projects</p><p className="stat-value">{filteredProjects.length}</p><div className="stat-subtext">All departments</div></article>
+                      <article className="stat-card stat-blue"><div className="stat-chip"></div><p className="stat-label">Active</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Active").length}</p><div className="stat-subtext">In delivery</div></article>
+                      <article className="stat-card stat-purple"><div className="stat-chip"></div><p className="stat-label">Submitted</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Submitted").length}</p><div className="stat-subtext">Awaiting decision</div></article>
                       <article className="stat-card stat-orange"><div className="stat-chip"></div><p className="stat-label">On hold</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "On hold").length}</p><div className="stat-subtext">Paused</div></article>
-                      <article className="stat-card stat-grey"><div className="stat-chip"></div><p className="stat-label">Completed</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Completed").length}</p><div className="stat-subtext">Closed out</div></article>
+                      <article className="stat-card stat-green"><div className="stat-chip"></div><p className="stat-label">Completed</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Completed").length}</p><div className="stat-subtext">Closed out</div></article>
                     </section>
 
                     <section className="toolbar">
@@ -1200,7 +1463,7 @@
                           <tbody>
                             {sortedProjects.map((project) => (
                               <tr key={project.id} className="clickable-row" tabIndex={0} onClick={() => openProject(project)} onKeyDown={(event) => onProjectRowKeyDown(event, project)}>
-                                <td><div className="project-main">{project.name}</div><div className="project-sub">{project.projectType}</div></td>
+                                <td><div className="project-main">{project.name}</div><div className="project-sub">{project.projectType} · {getRoadmapPhaseLabel(project.roadmapPhase)}</div></td>
                                 <td><span className={`status-pill ${getStatusClass(project.status)}`}>{project.status}</span></td>
                                 <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.projectManager); }}>{project.projectManager}</button></td>
                                 <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.primarySponsor); }}>{project.primarySponsor}</button></td>
@@ -1295,13 +1558,16 @@
             </form>
           </Modal>
 
-          <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} canEditProject={currentUser.isAdmin} onSaveProjectEdits={saveProjectEdits} onOpenProfile={openProfile} />
-          <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />
+          {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} canEditProject={currentUser.isAdmin} onSaveProjectEdits={saveProjectEdits} onOpenProfile={openProfile} />}
+          {isPortfolioPage && <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />}
         </>
       );
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  
+
+
   </script>
 </body>
 </html>

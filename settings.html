@@ -1,4 +1,24 @@
-﻿    const { useEffect, useMemo, useState } = React;
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyMKSWay Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script>window.MKS_PAGE = "settings";</script>
+  <script src="app-config.js"></script>
+  <script src="scoring.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useEffect, useMemo, useState } = React;
     const { sidebarNav, intakeOptions, documentTemplates, mockProjects } = window.APP_CONFIG;
     const { assess } = window.ScoringEngine;
     const draftStorageKey = "mks-intake-draft";
@@ -1547,3 +1567,7 @@
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   
 
+
+  </script>
+</body>
+</html>
