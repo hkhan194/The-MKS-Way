@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title>Moore Kingston Smith Logo</title>
+  <rect width="120" height="120" fill="#ffffff"/>
+  <polygon points="8,8 60,60 8,112" fill="#1f9cdf"/>
+  <polygon points="112,8 60,60 112,112" fill="#1f9cdf"/>
+  <polygon points="8,112 60,60 112,112" fill="#000000"/>
+</svg>
