@@ -191,8 +191,10 @@
         const existingProject = dedupedProjects[existingIndex];
         const existingPriority = existingProject.status === "Draft" ? 0 : 1;
         const incomingPriority = project.status === "Draft" ? 0 : 1;
+        const existingDataWeight = (existingProject.submittedDocuments?.length || 0) + (existingProject.draftFormValues ? 1 : 0);
+        const incomingDataWeight = (project.submittedDocuments?.length || 0) + (project.draftFormValues ? 1 : 0);
 
-        if (incomingPriority >= existingPriority) {
+        if (incomingPriority > existingPriority || (incomingPriority === existingPriority && incomingDataWeight >= existingDataWeight)) {
           dedupedProjects[existingIndex] = project;
         }
       });
