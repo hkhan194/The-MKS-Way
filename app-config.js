@@ -1,4 +1,10 @@
-﻿window.APP_CONFIG = {
+﻿const mksCurrentUser = {
+  name: "Hasan Khan",
+  roleLabel: "Project Manager",
+  isAdmin: true
+};
+window.APP_CONFIG = {
+  currentUser: mksCurrentUser,
   sidebarNav: [
     { key: "portfolio-home", label: "Portfolio home", icon: "grid", active: true },
     { key: "my-projects", label: "My projects", icon: "briefcase", active: false },
@@ -14,7 +20,7 @@
       "One firm philosophy",
       "Intelligent innovation"
     ],
-    departments: ["IT", "Finance", "Facilities", "HR", "Tax", "Audit", "People", "Marketing", "L&D"],
+    departments: ["IT", "Finance", "Facilities", "HR", "PMO", "MKS", "Tax", "Audit", "People", "Marketing", "L&D"],
     statuses: ["Draft", "Submitted", "Active", "On hold", "Completed"],
     budgetBands: [
       { value: "under15000", label: "Under GBP 15,000" },
@@ -61,9 +67,9 @@
       status: "Submitted",
       tshirtSize: "S",
       completionPercentage: 0,
-      projectManager: "Hasan Khan",
+      projectManager: "Lazo Basic",
       primarySponsor: "Lazo Basic",
-      department: "IT",
+      department: "MKS",
       projectType: "Client portal",
       strategicPillar: "Clients at our core",
       budget: "GBP 50,001 to GBP 70,000",
@@ -88,7 +94,7 @@
       status: "Active",
       tshirtSize: "XL",
       completionPercentage: 62,
-      projectManager: "Hasan Khan",
+      projectManager: mksCurrentUser.name,
       primarySponsor: "Lazo Basic",
       department: "IT",
       projectType: "Technology implementation",
@@ -115,8 +121,8 @@
       status: "Active",
       tshirtSize: "L",
       completionPercentage: 18,
-      projectManager: "Hasan Khan",
-      primarySponsor: "Lazo Basic",
+      projectManager: "To be confirmed",
+      primarySponsor: "Kate Bowen",
       department: "IT",
       projectType: "Application change",
       strategicPillar: "Clients at our core",
@@ -142,8 +148,8 @@
       status: "Active",
       tshirtSize: "M",
       completionPercentage: 74,
-      projectManager: "Hasan Khan",
-      primarySponsor: "Lazo Basic",
+      projectManager: "Lazo Basic",
+      primarySponsor: "Dan Martin",
       department: "Marketing",
       projectType: "Business change",
       strategicPillar: "Clients at our core",
@@ -169,9 +175,9 @@
       status: "Planning",
       tshirtSize: "L",
       completionPercentage: 34,
-      projectManager: "Hasan Khan",
-      primarySponsor: "Lazo Basic",
-      department: "People",
+      projectManager: "Ross Andrean",
+      primarySponsor: "Dan Martin",
+      department: "PMO",
       projectType: "Operating model",
       strategicPillar: "Sustainable success",
       budget: "GBP 50,001 to GBP 70,000",
@@ -196,8 +202,8 @@
       status: "Active",
       tshirtSize: "M",
       completionPercentage: 22,
-      projectManager: "Robin Taylor",
-      primarySponsor: "Sarah Kent",
+      projectManager: "To be confirmed",
+      primarySponsor: "Victoria Ponda",
       department: "HR",
       projectType: "Platform upgrade",
       strategicPillar: "People first",
@@ -223,7 +229,7 @@
       status: "Active",
       tshirtSize: "M",
       completionPercentage: 16,
-      projectManager: "Hasan Khan",
+      projectManager: "Ross Andrean",
       primarySponsor: "Lazo Basic",
       department: "IT",
       projectType: "Knowledge and workflow review",
@@ -246,12 +252,12 @@
     },
     {
       id: 8,
-      name: "Refurb 12 Apple Street",
+      name: "Refurb 12 Appold Street",
       status: "Planning",
       tshirtSize: "L",
       completionPercentage: 18,
-      projectManager: "Hasan Khan",
-      primarySponsor: "Mark Davies",
+      projectManager: "Simon Booth",
+      primarySponsor: "Dan Martin",
       department: "Facilities",
       projectType: "Office refurbishment",
       strategicPillar: "Sustainable success",
@@ -265,11 +271,12 @@
       timelineEndMonth: 12,
       whatHappenedLastMonth: "The building brief was approved and the first planning conversations started with facilities, IT, and workplace stakeholders.",
       currentPosition: "Approved and in planning, with the early design, move assumptions, and supplier route being shaped.",
-      next30DaysPipeline: "Confirm the refurbishment scope, planning assumptions, and the phased delivery approach for 12 Apple Street.",
+      next30DaysPipeline: "Confirm the refurbishment scope, planning assumptions, and the phased delivery approach for 12 Appold Street.",
       steeringDecisionNeeded: "Approve the planning baseline and preferred delivery route before detailed design is commissioned.",
-      businessObjective: "Refurbish 12 Apple Street so the space better supports teams, clients, and hybrid ways of working.",
+      businessObjective: "Refurbish 12 Appold Street so the space better supports teams, clients, and hybrid ways of working.",
       projectHealthChartData: { governance: 3, sponsorEngagement: 3, scope: 4, budget: 3, schedule: 3, resourcing: 2, riskIssues: 3, quality: 3 },
       healthCheckReportUrl: ""
     }
   ]
 };
+
