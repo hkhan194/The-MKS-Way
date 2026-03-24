@@ -3,14 +3,1305 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MyMKSWay</title>
-  <meta http-equiv="refresh" content="0; url=mks-portfolio.html">
+  <title>MyMKSWay Portfolio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body style="font-family: 'Source Sans 3', sans-serif; padding: 32px;">
-  <h1 style="font-family: 'Montserrat', sans-serif;">Redirecting to the refreshed portfolio preview...</h1>
-  <p>If the redirect does not happen automatically, open <a href="mks-portfolio.html">mks-portfolio.html</a>.</p>
+<body>
+  <div id="root"></div>
+  <script src="app-config.js"></script>
+  <script src="scoring.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useEffect, useMemo, useState } = React;
+    const { sidebarNav, intakeOptions, documentTemplates, mockProjects } = window.APP_CONFIG;
+    const { assess } = window.ScoringEngine;
+    const draftStorageKey = "mks-intake-draft";
+    const projectsStorageKey = "mks-portfolio-projects";
+    const profilesStorageKey = "mks-portfolio-profiles";
+    const currentUser = {
+      name: "Hasan Khan",
+      roleLabel: "Project Manager",
+      isAdmin: true
+    };
+
+    const defaultForm = {
+      projectName: "",
+      projectManager: "",
+      primarySponsor: "",
+      strategicPillar: "",
+      department: "",
+      status: "",
+      budgetBand: "",
+      deliveryTimeline: "",
+      impactedTeams: "",
+      clientSensitiveData: "",
+      audienceType: "",
+      strategicImportance: "",
+      oneLineJustification: ""
+    };
+
+    function normaliseFormValues(values) {
+      return { ...defaultForm, ...(values || {}) };
+    }
+
+    function buildTriangleFromIndicators(project) {
+      if (project.status === "Draft") return null;
+
+      const base = Math.max(2, Math.min(5, Math.round((project.overallScore || 50) / 20)));
+      const time = project.status === "On hold" ? Math.max(1, base - 1) : base;
+      const scope = project.currentRisk === "Medium" ? Math.max(1, base - 1) : Math.min(5, base + 1);
+      const budget = project.currentRisk === "Low" ? Math.min(5, base + 1) : base;
+
+      return { time, scope, budget };
+    }
+
+    function getStoredDraftState() {
+      try {
+        const stored = window.localStorage.getItem(draftStorageKey);
+        if (!stored) {
+          return { editingDraftId: null, formValues: defaultForm };
+        }
+
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.formValues) {
+          return {
+            editingDraftId: parsed.editingDraftId || null,
+            formValues: normaliseFormValues(parsed.formValues)
+          };
+        }
+
+        return {
+          editingDraftId: null,
+          formValues: normaliseFormValues(parsed)
+        };
+      } catch {
+        return { editingDraftId: null, formValues: defaultForm };
+      }
+    }
+
+    function hydrateProject(project) {
+      return {
+        ...project,
+        createdBy: project.createdBy || project.projectManager || "",
+        draftFormValues: project.draftFormValues ? normaliseFormValues(project.draftFormValues) : null,
+        projectHealthTriangleData: project.projectHealthTriangleData || buildTriangleFromIndicators(project)
+      };
+    }
+
+    function getStoredProjects() {
+      try {
+        const stored = window.localStorage.getItem(projectsStorageKey);
+        if (!stored) {
+          return mockProjects.map(hydrateProject);
+        }
+
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed.map(hydrateProject) : mockProjects.map(hydrateProject);
+      } catch {
+        return mockProjects.map(hydrateProject);
+      }
+    }
+
+    function getStoredProfiles() {
+      try {
+        const stored = window.localStorage.getItem(profilesStorageKey);
+        return stored ? JSON.parse(stored) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function isComplete(values) {
+      return Object.values(values).every(Boolean);
+    }
+
+    function getStatusClass(status) {
+      if (status === "Draft") return "status-draft";
+      if (status === "Active") return "status-active";
+      if (status === "Planning") return "status-planning";
+      if (status === "Completed") return "status-completed";
+      return "status-onhold";
+    }
+
+    function getProgressClass(status) {
+      if (status === "Active" || status === "Completed") return "progress-green";
+      if (status === "Planning" || status === "On hold") return "progress-orange";
+      return "progress-blue";
+    }
+
+    function projectStatusFromForm(status) {
+      return status === "Submitted" ? "Planning" : status;
+    }
+
+    function iconPath(icon) {
+      const icons = {
+        grid: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+        briefcase: "M3 8h18v11H3zM9 8V6h6v2M10 12h4",
+        route: "M6 18a2 2 0 1 0 0 0M18 6a2 2 0 1 0 0 0M8 18h6a4 4 0 0 0 4-4V8",
+        chart: "M5 19V10M12 19V5M19 19v-8",
+        cog: "M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5zM12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1",
+        menu: "M4 7h16M4 12h16M4 17h16",
+        close: "M6 6l12 12M18 6L6 18",
+        edit: "M4 20h4l10.5-10.5-4-4L4 16v4M13.5 6.5l4 4M15 5l4 4",
+        sort: "M8 7l4-4 4 4M16 17l-4 4-4-4M12 3v18",
+        person: "M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8M5 21a7 7 0 0 1 14 0"
+      };
+      return icons[icon] || icons.grid;
+    }
+
+    function Icon({ icon, className = "nav-svg" }) {
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path d={iconPath(icon)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    function RadarChart({ data }) {
+      const axes = [
+        ["Governance", data.governance],
+        ["Sponsor Engagement", data.sponsorEngagement],
+        ["Scope", data.scope],
+        ["Budget", data.budget],
+        ["Schedule", data.schedule],
+        ["Resourcing", data.resourcing],
+        ["Risk & Issues", data.riskIssues],
+        ["Quality", data.quality]
+      ];
+      const size = 320;
+      const center = size / 2;
+      const maxRadius = 108;
+      const levels = [1, 2, 3, 4, 5];
+
+      const pointFor = (value, index, radiusMultiplier = 1) => {
+        const angle = ((Math.PI * 2) / axes.length) * index - Math.PI / 2;
+        const radius = (value / 5) * maxRadius * radiusMultiplier;
+        return [center + Math.cos(angle) * radius, center + Math.sin(angle) * radius];
+      };
+
+      const polygonPoints = axes.map(([, value], index) => pointFor(value, index).join(",")).join(" ");
+
+      return (
+        <div className="radar-chart-wrap">
+          <svg viewBox={`0 0 ${size} ${size}`} className="radar-chart" role="img" aria-label="Project health radar chart">
+            {levels.map((level) => {
+              const points = axes.map((_, index) => pointFor(level, index, 1).join(",")).join(" ");
+              return <polygon key={level} points={points} className="radar-grid" />;
+            })}
+            {axes.map(([label], index) => {
+              const [x, y] = pointFor(5, index, 1.1);
+              return (
+                <g key={label}>
+                  <line x1={center} y1={center} x2={pointFor(5, index)[0]} y2={pointFor(5, index)[1]} className="radar-axis" />
+                  <text x={x} y={y} className="radar-label" textAnchor={x < center - 8 ? "end" : x > center + 8 ? "start" : "middle"}>{label}</text>
+                </g>
+              );
+            })}
+            <polygon points={polygonPoints} className="radar-shape" />
+            {axes.map(([label, value], index) => {
+              const [x, y] = pointFor(value, index);
+              return <circle key={`${label}-${value}`} cx={x} cy={y} r="4" className={`radar-point radar-point-${value}`} />;
+            })}
+          </svg>
+          <p className="radar-scale-note">Closer to the outside means that area is in a better place.</p>
+          <div className="radar-scale" aria-label="Project health legend">
+            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-watch" aria-hidden="true"></span>Needs attention</span>
+            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-track" aria-hidden="true"></span>On track</span>
+            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-strong" aria-hidden="true"></span>In a good place</span>
+          </div>
+        </div>
+      );
+    }
+
+    function TriangleChart({ data }) {
+      const axes = [
+        ["Time", data.time],
+        ["Scope", data.scope],
+        ["Budget", data.budget]
+      ];
+      const size = 260;
+      const center = size / 2;
+      const maxRadius = 82;
+      const levels = [1, 2, 3, 4, 5];
+
+      const pointFor = (value, index) => {
+        const angle = ((Math.PI * 2) / axes.length) * index - Math.PI / 2;
+        const radius = (value / 5) * maxRadius;
+        return [center + Math.cos(angle) * radius, center + Math.sin(angle) * radius];
+      };
+
+      return (
+        <div className="triangle-chart-wrap">
+          <svg viewBox={`0 0 ${size} ${size}`} className="triangle-chart" role="img" aria-label="Project golden triangle chart">
+            {levels.map((level) => {
+              const points = axes.map((_, index) => pointFor(level, index).join(",")).join(" ");
+              return <polygon key={level} points={points} className="triangle-grid" />;
+            })}
+            {axes.map(([label], index) => {
+              const [x, y] = pointFor(5, index);
+              return (
+                <g key={label}>
+                  <line x1={center} y1={center} x2={pointFor(5, index)[0]} y2={pointFor(5, index)[1]} className="triangle-axis" />
+                  <text x={x} y={y} className="triangle-label" textAnchor="middle">{label}</text>
+                </g>
+              );
+            })}
+            <polygon points={axes.map(([, value], index) => pointFor(value, index).join(",")).join(" ")} className="triangle-shape" />
+          </svg>
+          <p className="triangle-note">A quick balance check across delivery time, scope control, and budget position.</p>
+        </div>
+      );
+    }
+
+    function Modal({ isOpen, onClose, titleId, children }) {
+      useEffect(() => {
+        if (!isOpen) return undefined;
+        const onKeyDown = (event) => {
+          if (event.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+      }, [isOpen, onClose]);
+
+      if (!isOpen) return null;
+
+      return (
+        <div className="modal show" aria-hidden={!isOpen}>
+          <div className="modal-backdrop" onClick={onClose}></div>
+          <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    function ProjectDetailModal({ project, onClose, canResumeDraft, onResumeDraft, canEditProject, onSaveProjectEdits, onOpenProfile }) {
+      const [isContextEditing, setIsContextEditing] = useState(false);
+      const [isUpdateEditing, setIsUpdateEditing] = useState(false);
+      const [contextValues, setContextValues] = useState({});
+      const [updateValues, setUpdateValues] = useState({});
+
+      useEffect(() => {
+        if (!project) return;
+
+        setIsContextEditing(false);
+        setIsUpdateEditing(false);
+        setContextValues({
+          projectManager: project.projectManager,
+          primarySponsor: project.primarySponsor,
+          department: project.department,
+          projectType: project.projectType,
+          strategicPillar: project.strategicPillar,
+          budget: project.budget
+        });
+        setUpdateValues({
+          whatHappenedLastMonth: project.whatHappenedLastMonth,
+          currentPosition: project.currentPosition,
+          next30DaysPipeline: project.next30DaysPipeline,
+          steeringDecisionNeeded: project.steeringDecisionNeeded
+        });
+      }, [project]);
+
+      if (!project) {
+        return <Modal isOpen={false} onClose={onClose} titleId="projectDetailTitle" />;
+      }
+
+      const saveContext = () => {
+        onSaveProjectEdits(project.id, contextValues);
+        setIsContextEditing(false);
+      };
+
+      const saveUpdates = () => {
+        onSaveProjectEdits(project.id, updateValues);
+        setIsUpdateEditing(false);
+      };
+
+      return (
+        <Modal isOpen={!!project} onClose={onClose} titleId="projectDetailTitle">
+          <div className="detail-modal">
+            <div className="detail-header">
+              <div>
+                <h2 id="projectDetailTitle" className="detail-title">{project.name}</h2>
+                <div className="detail-badges">
+                  <span className={`status-pill ${getStatusClass(project.status)}`}>{project.status}</span>
+                  <span className="size-badge">{project.tshirtSize}</span>
+                </div>
+              </div>
+              <button className="icon-btn" type="button" aria-label="Close project details" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
+            </div>
+
+            <section className="detail-card summary-card">
+              <div className="section-header-row">
+                <div className="section-title-row">
+                  <p className="section-title">Portfolio snapshot</p>
+                </div>
+              </div>
+              {project.status === "Draft" && canResumeDraft && (
+                <div className="draft-banner">
+                  <div>
+                    <p className="draft-banner-title">Draft application</p>
+                    <p className="draft-banner-copy">This project has been started but not yet submitted. Resume the form to finish the remaining fields, upload the required documents, and submit the application.</p>
+                  </div>
+                  <button className="primary-btn" type="button" onClick={() => onResumeDraft(project)}>Resume form completion</button>
+                </div>
+              )}
+              <div className="summary-highlight">
+                <p className="summary-highlight-label">Business objective</p>
+                <p className="summary-highlight-copy">{project.businessObjective}</p>
+              </div>
+              <div className="summary-grid">
+                <div><dt>Completion percentage</dt><dd>{project.completionPercentage}%</dd></div>
+                <div><dt>Overall Score</dt><dd>{project.overallScore}/100</dd></div>
+                <div><dt>Current Risk</dt><dd>{project.currentRisk}</dd></div>
+              </div>
+              <div className="progress-wrap detail-progress">
+                <div className="progress-track detail-progress-track">
+                  <div className={`progress-bar ${getProgressClass(project.status)}`} style={{ width: `${project.completionPercentage}%` }}></div>
+                </div>
+              </div>
+            </section>
+
+            <div className="detail-grid">
+              <section className="detail-card">
+                <div className="section-header-row">
+                  <div className="section-title-row">
+                    <p className="section-title">Project context</p>
+                  </div>
+                  {canEditProject && (
+                    <div className="section-actions">
+                      {isContextEditing && <button className="secondary-btn section-save-btn" type="button" onClick={saveContext}>Save</button>}
+                      <button className="icon-btn section-icon-btn" type="button" aria-label="Edit project context" onClick={() => setIsContextEditing((current) => !current)}><Icon icon="edit" className="icon-only-svg" /></button>
+                    </div>
+                  )}
+                </div>
+                {isContextEditing ? (
+                  <div className="detail-edit-grid">
+                    <label><span>Project Manager</span><input type="text" value={contextValues.projectManager || ""} onChange={(event) => setContextValues((current) => ({ ...current, projectManager: event.target.value }))} /></label>
+                    <label><span>Primary Sponsor</span><input type="text" value={contextValues.primarySponsor || ""} onChange={(event) => setContextValues((current) => ({ ...current, primarySponsor: event.target.value }))} /></label>
+                    <label><span>Department</span><select value={contextValues.department || ""} onChange={(event) => setContextValues((current) => ({ ...current, department: event.target.value }))}><option value="">Select</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+                    <label><span>Project Type</span><input type="text" value={contextValues.projectType || ""} onChange={(event) => setContextValues((current) => ({ ...current, projectType: event.target.value }))} /></label>
+                    <label><span>Strategic Pillar</span><select value={contextValues.strategicPillar || ""} onChange={(event) => setContextValues((current) => ({ ...current, strategicPillar: event.target.value }))}><option value="">Select</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+                    <label><span>Budget</span><select value={contextValues.budget || ""} onChange={(event) => setContextValues((current) => ({ ...current, budget: event.target.value }))}><option value="">Select</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.label}>{item.label}</option>)}</select></label>
+                  </div>
+                ) : (
+                  <dl className="detail-list">
+                    <div><dt>Project Manager</dt><dd><button className="profile-link" type="button" onClick={() => onOpenProfile(project.projectManager)}>{project.projectManager}</button></dd></div>
+                    <div><dt>Primary Sponsor</dt><dd><button className="profile-link" type="button" onClick={() => onOpenProfile(project.primarySponsor)}>{project.primarySponsor}</button></dd></div>
+                    <div><dt>Department</dt><dd>{project.department}</dd></div>
+                    <div><dt>Project Type</dt><dd>{project.projectType}</dd></div>
+                    <div><dt>Strategic Pillar</dt><dd>{project.strategicPillar}</dd></div>
+                    <div><dt>Budget</dt><dd>{project.budget}</dd></div>
+                  </dl>
+                )}
+              </section>
+
+              <section className="detail-card">
+                <div className="section-header-row">
+                  <div className="section-title-row">
+                    <p className="section-title">Monthly update and steering</p>
+                  </div>
+                  <div className="section-actions">
+                    {project.healthCheckReportUrl ? (
+                      <a className="doc-link" href={project.healthCheckReportUrl}>Open Health Check Report</a>
+                    ) : (
+                      <button className="secondary-btn" type="button" disabled>No report available</button>
+                    )}
+                    {canEditProject && (
+                      <>
+                        {isUpdateEditing && <button className="secondary-btn section-save-btn" type="button" onClick={saveUpdates}>Save</button>}
+                        <button className="icon-btn section-icon-btn" type="button" aria-label="Edit monthly update and steering" onClick={() => setIsUpdateEditing((current) => !current)}><Icon icon="edit" className="icon-only-svg" /></button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {isUpdateEditing ? (
+                  <div className="detail-edit-grid update-edit-grid">
+                    <label className="full-width"><span>What happened last month</span><textarea rows="3" value={updateValues.whatHappenedLastMonth || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, whatHappenedLastMonth: event.target.value }))} /></label>
+                    <label className="full-width"><span>Where we are at the moment</span><textarea rows="3" value={updateValues.currentPosition || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, currentPosition: event.target.value }))} /></label>
+                    <label className="full-width"><span>What is in the pipeline for the next 30 days</span><textarea rows="3" value={updateValues.next30DaysPipeline || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, next30DaysPipeline: event.target.value }))} /></label>
+                    <label className="full-width"><span>What decision needs steering, from who, and by when</span><textarea rows="3" value={updateValues.steeringDecisionNeeded || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, steeringDecisionNeeded: event.target.value }))} /></label>
+                  </div>
+                ) : (
+                  <dl className="detail-list stacked update-list">
+                    <div><dt>What happened last month</dt><dd>{project.whatHappenedLastMonth}</dd></div>
+                    <div><dt>Where we are at the moment</dt><dd>{project.currentPosition}</dd></div>
+                    <div><dt>What is in the pipeline for the next 30 days</dt><dd>{project.next30DaysPipeline}</dd></div>
+                    <div><dt>What decision needs steering, from who, and by when</dt><dd>{project.steeringDecisionNeeded}</dd></div>
+                  </dl>
+                )}
+              </section>
+
+              <section className="detail-card full-span">
+                <div className="section-header-row">
+                  <div className="section-title-row">
+                    <p className="section-title">Project health</p>
+                  </div>
+                </div>
+                <p className="radar-intro">A quick view of where the project feels strongest and where it needs more attention.</p>
+                <div className="health-grid">
+                  <div className="health-panel">
+                    <p className="health-panel-title">Radar view</p>
+                    <RadarChart data={project.projectHealthChartData} />
+                  </div>
+                  <div className="health-panel">
+                    <p className="health-panel-title">Golden triangle</p>
+                    {project.projectHealthTriangleData ? (
+                      <TriangleChart data={project.projectHealthTriangleData} />
+                    ) : (
+                      <p className="chart-empty-state">This view will appear once the project has been submitted.</p>
+                    )}
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    function ProfileModal({ personName, profile, stats, onClose, onSave }) {
+      const [formValues, setFormValues] = useState(profile || {});
+      const isCurrentUser = personName === currentUser.name;
+
+      useEffect(() => {
+        setFormValues(profile || {});
+      }, [profile]);
+
+      return (
+        <Modal isOpen={!!personName} onClose={onClose} titleId="profileTitle">
+          {personName && profile && (
+            <div className="detail-modal profile-modal">
+                <div className="detail-header">
+                  <div>
+                    <p className="eyebrow">{isCurrentUser ? "My profile" : "Profile"}</p>
+                    <h2 id="profileTitle" className="detail-title">{profile.fullName}</h2>
+                  </div>
+                <button className="icon-btn" type="button" aria-label="Close profile details" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
+              </div>
+
+              <section className="detail-card">
+                <div className="section-header-row">
+                  <div className="section-title-row">
+                    <p className="section-title">Profile settings</p>
+                  </div>
+                </div>
+                <div className="detail-edit-grid">
+                  <label><span>First name</span><input type="text" value={formValues.firstName || ""} onChange={(event) => setFormValues((current) => ({ ...current, firstName: event.target.value }))} /></label>
+                  <label><span>Full name</span><input type="text" value={formValues.fullName || ""} onChange={(event) => setFormValues((current) => ({ ...current, fullName: event.target.value }))} /></label>
+                  <label><span>Title</span><input type="text" value={formValues.title || ""} onChange={(event) => setFormValues((current) => ({ ...current, title: event.target.value }))} /></label>
+                  <label><span>Department</span><input type="text" value={formValues.department || ""} onChange={(event) => setFormValues((current) => ({ ...current, department: event.target.value }))} /></label>
+                </div>
+                <div className="form-actions profile-actions">
+                  <button className="primary-btn" type="button" onClick={() => onSave(personName, formValues)}>Save profile</button>
+                </div>
+              </section>
+
+              <section className="score-panel profile-stats">
+                <div className="score-card"><span>Projects as manager</span><strong>{stats.projectsAsManager}</strong></div>
+                <div className="score-card"><span>Projects as sponsor</span><strong>{stats.projectsAsSponsor}</strong></div>
+                <div className="score-card"><span>Active footprint</span><strong>{stats.activeProjects}</strong></div>
+                <div className="score-card"><span>Hit rate</span><strong>{stats.hitRate}%</strong></div>
+                <div className="score-card"><span>Manager activity</span><strong>{stats.managerActivity}%</strong></div>
+                <div className="score-card"><span>Action update rate</span><strong>{stats.actionUpdateRate}%</strong></div>
+              </section>
+            </div>
+          )}
+        </Modal>
+      );
+    }
+
+    function RoadmapView({ projects, scale, onScaleChange }) {
+      const [searchTerm, setSearchTerm] = useState("");
+      const [projectFilter, setProjectFilter] = useState("All projects");
+      const [managerFilter, setManagerFilter] = useState("All PMs");
+      const [sponsorFilter, setSponsorFilter] = useState("All sponsors");
+      const [statusFilter, setStatusFilter] = useState("All statuses");
+      const [isOverallOpen, setIsOverallOpen] = useState(false);
+
+      const monthlySegments = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      ];
+      const segments = scale === "monthly"
+        ? monthlySegments
+        : scale === "quarterly"
+          ? ["Q1", "Q2", "Q3", "Q4"]
+          : ["2026"];
+      const segmentCount = scale === "monthly" ? 12 : scale === "quarterly" ? 4 : 1;
+      const displayStart = (month) => scale === "monthly" ? month : scale === "quarterly" ? Math.ceil(month / 3) : 1;
+      const displayEnd = (month) => scale === "monthly" ? month : scale === "quarterly" ? Math.ceil(month / 3) : 1;
+
+      const phaseTemplates = [
+        {
+          key: "discovery",
+          label: "Discovery and framing",
+          duration: 2,
+          tone: "slate",
+          milestoneLabel: "Discovery sign-off",
+          tasks: (project) => [`Kick-off and stakeholder framing`, `Confirm why ${project.name} is needed`]
+        },
+        {
+          key: "definition",
+          label: "Definition and planning",
+          duration: 2,
+          tone: "blue",
+          milestoneLabel: "Plan approved",
+          tasks: (project) => [`Scope and governance plan`, `Confirm budget and sponsor decisions`]
+        },
+        {
+          key: "delivery",
+          label: "Delivery and learning",
+          duration: 4,
+          tone: "teal",
+          milestoneLabel: "Key delivery milestone",
+          tasks: (project) => [`Deliver ${project.projectType.toLowerCase()}`, `Track adoption and lessons learned`]
+        },
+        {
+          key: "closure",
+          label: "Closure and benefit realization",
+          duration: 2,
+          tone: "amber",
+          milestoneLabel: "Benefits checkpoint",
+          tasks: () => [`Transition into BAU`, `Confirm benefits and close actions`]
+        }
+      ];
+
+      const managers = [...new Set(projects.filter((project) => project.status !== "Draft").map((project) => project.projectManager))];
+      const sponsors = [...new Set(projects.filter((project) => project.status !== "Draft").map((project) => project.primarySponsor))];
+      const projectNames = [...new Set(projects.filter((project) => project.status !== "Draft").map((project) => project.name))];
+      const statuses = [...new Set(projects.filter((project) => project.status !== "Draft").map((project) => project.status))];
+
+      const roadmapProjects = projects
+        .filter((project) => project.status !== "Draft")
+        .filter((project) => {
+          const haystack = [project.name, project.projectManager, project.primarySponsor, project.department, project.projectType].join(" ").toLowerCase();
+          const matchesSearch = !searchTerm || haystack.includes(searchTerm.toLowerCase());
+          const matchesProject = projectFilter === "All projects" || project.name === projectFilter;
+          const matchesManager = managerFilter === "All PMs" || project.projectManager === managerFilter;
+          const matchesSponsor = sponsorFilter === "All sponsors" || project.primarySponsor === sponsorFilter;
+          const matchesStatus = statusFilter === "All statuses" || project.status === statusFilter;
+          return matchesSearch && matchesProject && matchesManager && matchesSponsor && matchesStatus;
+        })
+        .map((project, index) => {
+          const startMonth = Math.min(4, 1 + (index % 4));
+          let currentMonth = startMonth;
+          const totalPhaseUnits = phaseTemplates.reduce((sum, phase) => sum + phase.duration, 0);
+          let completedUnits = (project.completionPercentage / 100) * totalPhaseUnits;
+
+          const phases = phaseTemplates.map((template) => {
+            const start = currentMonth;
+            const end = Math.min(12, currentMonth + template.duration - 1);
+            const progressUnits = Math.max(0, Math.min(template.duration, completedUnits));
+            const phaseProgress = Math.round((progressUnits / template.duration) * 100);
+            completedUnits = Math.max(0, completedUnits - template.duration);
+            currentMonth = end + 1;
+            const tasks = template.tasks(project);
+            const subtaskEnd = Math.min(end, start + Math.max(0, template.duration - 1));
+
+            return {
+              ...template,
+              start,
+              end,
+              displayStart: displayStart(start),
+              displayEnd: displayEnd(end),
+              phaseProgress,
+              milestoneMonth: end,
+              milestoneSegment: displayEnd(end),
+              currentTask: tasks[0],
+              supportingTask: tasks[1]
+            };
+          });
+
+          return { project, phases };
+        });
+
+      const laneStyle = {
+        "--roadmap-segments": segmentCount
+      };
+      const scales = [
+        { key: "monthly", label: "Monthly" },
+        { key: "quarterly", label: "Quarterly" },
+        { key: "yearly", label: "Yearly" }
+      ];
+
+      const OverallRoadmapModal = () => (
+        <Modal isOpen={isOverallOpen} onClose={() => setIsOverallOpen(false)} titleId="overallRoadmapTitle">
+          <div className="detail-modal overall-roadmap-modal">
+            <div className="detail-header">
+              <div>
+                <p className="eyebrow">Roadmap</p>
+                <h2 id="overallRoadmapTitle" className="detail-title">Overall roadmap</h2>
+              </div>
+              <button className="icon-btn" type="button" aria-label="Close overall roadmap" onClick={() => setIsOverallOpen(false)}><Icon icon="close" className="icon-only-svg" /></button>
+            </div>
+
+            <div className="roadmap-board roadmap-board-compact">
+              <div className="roadmap-grid-header">
+                <div className="roadmap-grid-title">Project</div>
+                <div className="roadmap-segment-row">
+                  {monthlySegments.map((segment) => <div key={`overall-${segment}`} className="roadmap-segment-cell">{segment}</div>)}
+                </div>
+              </div>
+
+              <div className="roadmap-list roadmap-list-compact">
+                {roadmapProjects.map((item) => {
+                  const projectStart = Math.min(...item.phases.map((phase) => phase.start));
+                  const projectEnd = Math.max(...item.phases.map((phase) => phase.end));
+                  return (
+                    <article className="roadmap-card roadmap-card-compact" key={`overall-card-${item.project.id}`}>
+                      <div className="roadmap-lane roadmap-lane-compact">
+                        <div className="roadmap-lane-label roadmap-lane-label-project">
+                          <strong>{item.project.name}</strong>
+                          <span>{item.project.status} · {item.project.completionPercentage}% complete</span>
+                        </div>
+                        <div className="roadmap-track" style={{ "--roadmap-segments": 12 }}>
+                          <div
+                            className="roadmap-task-bar roadmap-bar-blue"
+                            style={{
+                              left: `${((projectStart - 1) / 12) * 100}%`,
+                              width: `${((projectEnd - projectStart + 1) / 12) * 100}%`
+                            }}
+                          >
+                            <span className="roadmap-task-label">{item.project.projectType}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      );
+
+      return (
+        <>
+          <section className="roadmap-shell">
+            <div className="section-header">
+              <p className="section-title">Roadmap</p>
+              <p className="section-copy">A cleaner lifecycle roadmap view showing each project across discovery, planning, delivery, and closure.</p>
+            </div>
+
+            <div className="roadmap-toolbar">
+              <div className="search-wrap roadmap-search"><input className="search-input" type="search" placeholder="Search roadmap..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} /></div>
+              <select className="roadmap-filter-select" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}><option>All projects</option>{projectNames.map((item) => <option key={item}>{item}</option>)}</select>
+              <select className="roadmap-filter-select" value={managerFilter} onChange={(event) => setManagerFilter(event.target.value)}><option>All PMs</option>{managers.map((item) => <option key={item}>{item}</option>)}</select>
+              <select className="roadmap-filter-select" value={sponsorFilter} onChange={(event) => setSponsorFilter(event.target.value)}><option>All sponsors</option>{sponsors.map((item) => <option key={item}>{item}</option>)}</select>
+              <select className="roadmap-filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statuses.map((item) => <option key={item}>{item}</option>)}</select>
+            </div>
+
+            <div className="roadmap-controls">
+              <div className="roadmap-toggle">
+                {scales.map((item) => (
+                  <button key={item.key} className={`secondary-btn roadmap-toggle-btn ${scale === item.key ? "roadmap-toggle-btn-active" : ""}`} type="button" onClick={() => onScaleChange(item.key)}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <button className="secondary-btn roadmap-overall-btn" type="button" onClick={() => setIsOverallOpen(true)}>Overall roadmap</button>
+            </div>
+
+            <div className="roadmap-board">
+              <div className="roadmap-grid-header">
+                <div className="roadmap-grid-title">Project lifecycle</div>
+                <div className="roadmap-segment-row">
+                  {segments.map((segment) => <div key={segment} className="roadmap-segment-cell">{segment}</div>)}
+                </div>
+              </div>
+
+              <div className="roadmap-list">
+                {roadmapProjects.map((item) => (
+                  <article className="roadmap-card" key={`roadmap-${item.project.id}`}>
+                    <div className="roadmap-project-header">
+                      <div>
+                        <h3>{item.project.name}</h3>
+                        <p>{item.project.department} · Sponsor: {item.project.primarySponsor} · PM: {item.project.projectManager}</p>
+                      </div>
+                      <div className="roadmap-project-badges">
+                        <span className={`status-pill ${getStatusClass(item.project.status)}`}>{item.project.status}</span>
+                        <span className="roadmap-completion-badge">{item.project.completionPercentage}% complete</span>
+                      </div>
+                    </div>
+
+                    <div className="roadmap-phase-list">
+                      {item.phases.map((phase) => (
+                        <div className="roadmap-phase-row" key={`${item.project.id}-${phase.key}`}>
+                          <div className="roadmap-phase-meta">
+                            <p className="roadmap-phase-title">{phase.label}</p>
+                            <p className="roadmap-phase-task">{phase.currentTask}</p>
+                            <p className="roadmap-phase-support">{phase.supportingTask}</p>
+                          </div>
+
+                          <div className="roadmap-phase-track-wrap">
+                            <div className="roadmap-track" style={laneStyle}>
+                              <div
+                                className={`roadmap-task-bar roadmap-bar-${phase.tone}`}
+                                style={{
+                                  left: `${((phase.displayStart - 1) / segmentCount) * 100}%`,
+                                  width: `${((phase.displayEnd - phase.displayStart + 1) / segmentCount) * 100}%`
+                                }}
+                              >
+                                <div className={`roadmap-task-progress roadmap-bar-progress-${phase.tone}`} style={{ width: `${phase.phaseProgress}%` }}></div>
+                                <span className="roadmap-task-label">{phase.currentTask}</span>
+                                <span className="roadmap-task-percent">{phase.phaseProgress}%</span>
+                                <div className="roadmap-milestone roadmap-milestone-end" aria-label={`Milestone for ${phase.label}`}></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="roadmap-phase-progress">{phase.phaseProgress}%</div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {!roadmapProjects.length && <p className="empty-state">No roadmap items match the current search and filter settings.</p>}
+            </div>
+          </section>
+
+          <OverallRoadmapModal />
+        </>
+      );
+    }
+
+    function App() {
+      const storedDraftState = getStoredDraftState();
+      const [projects, setProjects] = useState(getStoredProjects);
+      const [profiles, setProfiles] = useState(getStoredProfiles);
+      const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+      const [selectedProject, setSelectedProject] = useState(null);
+      const [selectedPersonName, setSelectedPersonName] = useState("");
+      const [isNavOpen, setIsNavOpen] = useState(false);
+      const [activeNavKey, setActiveNavKey] = useState("portfolio-home");
+      const [editingDraftId, setEditingDraftId] = useState(storedDraftState.editingDraftId);
+      const [formValues, setFormValues] = useState(storedDraftState.formValues);
+      const [search, setSearch] = useState("");
+      const [statusFilter, setStatusFilter] = useState("All statuses");
+      const [departmentFilter, setDepartmentFilter] = useState("All departments");
+      const [pmFilter, setPmFilter] = useState("All PMs");
+      const [sponsorFilter, setSponsorFilter] = useState("All sponsors");
+      const [roadmapScale, setRoadmapScale] = useState("monthly");
+      const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
+      const [draftMessage, setDraftMessage] = useState("");
+
+      useEffect(() => {
+        if (!isNavOpen) return undefined;
+        const onKeyDown = (event) => {
+          if (event.key === "Escape") setIsNavOpen(false);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+      }, [isNavOpen]);
+
+      useEffect(() => {
+        window.localStorage.setItem(projectsStorageKey, JSON.stringify(projects));
+      }, [projects]);
+
+      useEffect(() => {
+        window.localStorage.setItem(profilesStorageKey, JSON.stringify(profiles));
+      }, [profiles]);
+
+      useEffect(() => {
+        if (editingDraftId || Object.values(formValues).some(Boolean)) {
+          window.localStorage.setItem(draftStorageKey, JSON.stringify({
+            editingDraftId,
+            formValues
+          }));
+          return;
+        }
+
+        window.localStorage.removeItem(draftStorageKey);
+      }, [editingDraftId, formValues]);
+
+      const assessment = useMemo(() => (isComplete(formValues) ? assess(formValues) : null), [formValues]);
+
+      const canViewProject = (project) => project.status !== "Draft" || currentUser.isAdmin || project.createdBy === currentUser.name;
+      const isAssignedToCurrentUser = (project) => [project.projectManager, project.primarySponsor, project.createdBy].includes(currentUser.name);
+      const canResumeProject = (project) => project.status === "Draft" && (currentUser.isAdmin || project.createdBy === currentUser.name);
+
+      const accessibleProjects = useMemo(() => projects.filter((project) => canViewProject(project)), [projects]);
+
+      const filteredProjects = useMemo(() => accessibleProjects.filter((project) => {
+        const haystack = [project.name, project.department, project.projectManager, project.primarySponsor, project.strategicPillar].join(" ").toLowerCase();
+        const matchesSearch = !search || haystack.includes(search.toLowerCase());
+        const matchesStatus = statusFilter === "All statuses" || project.status === statusFilter;
+        const matchesDepartment = departmentFilter === "All departments" || project.department === departmentFilter;
+        const matchesPm = pmFilter === "All PMs" || project.projectManager === pmFilter;
+        const matchesSponsor = sponsorFilter === "All sponsors" || project.primarySponsor === sponsorFilter;
+        const matchesView = activeNavKey !== "my-projects" || isAssignedToCurrentUser(project);
+        return matchesSearch && matchesStatus && matchesDepartment && matchesPm && matchesSponsor && matchesView;
+      }), [accessibleProjects, activeNavKey, search, statusFilter, departmentFilter, pmFilter, sponsorFilter]);
+
+      const sortedProjects = useMemo(() => {
+        const getSortValue = (project, key) => {
+          if (key === "completionPercentage") return project.completionPercentage;
+          if (key === "tshirtSize") return project.tshirtSize;
+          return `${project[key] || ""}`.toLowerCase();
+        };
+
+        return [...filteredProjects].sort((left, right) => {
+          const leftValue = getSortValue(left, sortConfig.key);
+          const rightValue = getSortValue(right, sortConfig.key);
+
+          if (leftValue === rightValue) return 0;
+          const comparison = leftValue > rightValue ? 1 : -1;
+          return sortConfig.direction === "asc" ? comparison : comparison * -1;
+        });
+      }, [filteredProjects, sortConfig]);
+
+      const departments = [...new Set(accessibleProjects.map((project) => project.department))];
+      const managers = [...new Set(accessibleProjects.map((project) => project.projectManager))];
+      const sponsors = [...new Set(accessibleProjects.map((project) => project.primarySponsor))];
+      const isRoadmapView = activeNavKey === "roadmap";
+      const isMyProjectsView = activeNavKey === "my-projects";
+      const pageTitle = isRoadmapView ? "Roadmap" : isMyProjectsView ? "My projects" : "Project portfolio";
+      const pageSectionTitle = isRoadmapView ? "Roadmap" : isMyProjectsView ? "My Projects" : "Portfolio Home";
+      const pageSectionCopy = isRoadmapView
+        ? "A multiple-project roadmap view with simple timeline filters."
+        : isMyProjectsView
+          ? "Projects where you are the manager, sponsor, or draft owner."
+          : "All visible projects across the portfolio.";
+      const currentProfile = selectedPersonName
+        ? {
+            firstName: selectedPersonName.split(" ")[0] || selectedPersonName,
+            fullName: selectedPersonName,
+            title: selectedPersonName === currentUser.name ? currentUser.roleLabel : "Portfolio contributor",
+            department: projects.find((project) => project.projectManager === selectedPersonName || project.primarySponsor === selectedPersonName)?.department || "Portfolio",
+            ...(profiles[selectedPersonName] || {})
+          }
+        : null;
+      const currentProfileStats = selectedPersonName ? {
+        projectsAsManager: projects.filter((project) => project.projectManager === selectedPersonName).length,
+        projectsAsSponsor: projects.filter((project) => project.primarySponsor === selectedPersonName).length,
+        activeProjects: projects.filter((project) => (project.projectManager === selectedPersonName || project.primarySponsor === selectedPersonName) && project.status !== "Completed").length,
+        hitRate: Math.round(((projects.filter((project) => project.projectManager === selectedPersonName && project.status === "Completed").length || 0) / Math.max(1, projects.filter((project) => project.projectManager === selectedPersonName).length)) * 100),
+        managerActivity: Math.min(98, 55 + (projects.filter((project) => project.projectManager === selectedPersonName).length * 7)),
+        actionUpdateRate: profiles[selectedPersonName]?.actionUpdateRate || Math.min(96, 60 + (projects.filter((project) => project.projectManager === selectedPersonName || project.primarySponsor === selectedPersonName).length * 5))
+      } : null;
+      const columnDefinitions = [
+        { key: "name", label: "Project name" },
+        { key: "status", label: "Status" },
+        { key: "projectManager", label: "Manager" },
+        { key: "primarySponsor", label: "Sponsor" },
+        { key: "department", label: "Department" },
+        { key: "tshirtSize", label: "Size" },
+        { key: "completionPercentage", label: "Completion" },
+        { key: "action", label: "Action" }
+      ];
+
+      const onChange = (event) => {
+        const { name, value } = event.target;
+        setDraftMessage("");
+        setFormValues((current) => ({ ...current, [name]: value }));
+      };
+
+      const getDraftCompletion = (values) => {
+        const completedFields = Object.values(values).filter(Boolean).length;
+        return Math.round((completedFields / Object.keys(defaultForm).length) * 100);
+      };
+
+      const toggleSort = (key) => {
+        if (key === "action") return;
+        setSortConfig((current) => {
+          if (current.key === key) {
+            return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+          }
+
+          return { key, direction: "asc" };
+        });
+      };
+
+      const saveDraft = () => {
+        if (!formValues.projectName) {
+          setDraftMessage("Add at least a project name before saving a draft.");
+          return;
+        }
+
+        const savedAssessment = isComplete(formValues) ? assess(formValues) : null;
+        const budgetLabel = intakeOptions.budgetBands.find((item) => item.value === formValues.budgetBand)?.label || "To be confirmed";
+        const draftId = editingDraftId || `draft-${Date.now()}`;
+        const draftProject = {
+          id: draftId,
+          name: formValues.projectName || "Untitled draft",
+          status: "Draft",
+          tshirtSize: savedAssessment ? savedAssessment.tshirtSize : "TBC",
+          completionPercentage: getDraftCompletion(formValues),
+          projectManager: formValues.projectManager || currentUser.name,
+          primarySponsor: formValues.primarySponsor || "To be confirmed",
+          department: formValues.department || "To be confirmed",
+          projectType: formValues.audienceType === "client" ? "Client-facing initiative" : formValues.audienceType === "internal" ? "Internal initiative" : "Draft project",
+          strategicPillar: formValues.strategicPillar || "To be confirmed",
+          budget: budgetLabel,
+          overallScore: savedAssessment ? savedAssessment.score : 0,
+          currentRisk: "Draft - awaiting submission",
+          whatHappenedLastMonth: "Draft saved and ready to be completed.",
+          currentPosition: "The intake form has been started but not yet submitted.",
+          next30DaysPipeline: "Complete the remaining fields, upload the required documents, and submit the application.",
+          steeringDecisionNeeded: "No steering decision is needed until the draft has been completed and submitted.",
+          businessObjective: formValues.oneLineJustification || "Business objective still being captured.",
+          projectHealthChartData: buildRadarDefaults(savedAssessment ? savedAssessment.score : 20),
+          projectHealthTriangleData: null,
+          healthCheckReportUrl: "",
+          createdBy: editingDraftId
+            ? projects.find((project) => project.id === editingDraftId)?.createdBy || currentUser.name
+            : currentUser.name,
+          draftFormValues: normaliseFormValues(formValues)
+        };
+
+        setProjects((current) => [draftProject, ...current.filter((project) => project.id !== draftProject.id)]);
+        setEditingDraftId(draftId);
+        setDraftMessage("Draft saved. Use Resume form completion to pick up where you left off.");
+      };
+
+      const clearFilters = () => {
+        setSearch("");
+        setStatusFilter("All statuses");
+        setDepartmentFilter("All departments");
+        setPmFilter("All PMs");
+        setSponsorFilter("All sponsors");
+      };
+
+      const buildRadarDefaults = (score) => {
+        const base = Math.max(1, Math.min(5, Math.round(score / 20)));
+        return {
+          governance: base,
+          sponsorEngagement: Math.min(5, base + 1),
+          scope: base,
+          budget: base,
+          schedule: Math.max(1, base - 1),
+          resourcing: Math.max(1, base - 1),
+          riskIssues: base,
+          quality: Math.min(5, base + 1)
+        };
+      };
+
+      const resetDraftState = () => {
+        setEditingDraftId(null);
+        setFormValues(defaultForm);
+        setDraftMessage("");
+      };
+
+      const startNewProject = () => {
+        setSelectedProject(null);
+        resetDraftState();
+        setIsIntakeOpen(true);
+      };
+
+      const resumeDraftProject = (project) => {
+        const storedDraftState = getStoredDraftState();
+        const budgetBand = intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "";
+        const fallbackValues = project.draftFormValues || normaliseFormValues({
+          projectName: project.name,
+          projectManager: project.projectManager,
+          primarySponsor: project.primarySponsor,
+          strategicPillar: project.strategicPillar,
+          department: project.department !== "To be confirmed" ? project.department : "",
+          status: "",
+          budgetBand,
+          deliveryTimeline: "",
+          impactedTeams: "",
+          clientSensitiveData: "",
+          audienceType: project.projectType === "Client-facing initiative" ? "client" : project.projectType === "Internal initiative" ? "internal" : "",
+          strategicImportance: "",
+          oneLineJustification: project.businessObjective !== "Business objective still being captured." ? project.businessObjective : ""
+        });
+        const resumeValues = storedDraftState.editingDraftId === project.id ? storedDraftState.formValues : fallbackValues;
+
+        setEditingDraftId(project.id);
+        setFormValues(resumeValues);
+        setDraftMessage(`Resumed draft for ${project.name}.`);
+        setSelectedProject(null);
+        setIsIntakeOpen(true);
+      };
+
+      const saveProjectEdits = (projectId, updates) => {
+        setProjects((current) => current.map((project) => project.id === projectId ? hydrateProject({ ...project, ...updates }) : project));
+        setSelectedProject((current) => current && current.id === projectId ? hydrateProject({ ...current, ...updates }) : current);
+      };
+
+      const openProfile = (personName) => setSelectedPersonName(personName);
+      const saveProfile = (personName, values) => {
+        setProfiles((current) => ({
+          ...current,
+          [personName]: {
+            ...current[personName],
+            ...values
+          }
+        }));
+      };
+
+      const submitProject = (event) => {
+        event.preventDefault();
+        if (!assessment) {
+          event.currentTarget.reportValidity();
+          return;
+        }
+
+        const budgetLabel = intakeOptions.budgetBands.find((item) => item.value === formValues.budgetBand)?.label || "";
+        const projectId = editingDraftId || `project-${Date.now()}`;
+        const existingDraft = projects.find((project) => project.id === editingDraftId);
+        const project = {
+          id: projectId,
+          name: formValues.projectName,
+          status: projectStatusFromForm(formValues.status),
+          tshirtSize: assessment.tshirtSize,
+          completionPercentage: 0,
+          projectManager: formValues.projectManager,
+          primarySponsor: formValues.primarySponsor,
+          department: formValues.department,
+          projectType: formValues.audienceType === "client" ? "Client-facing initiative" : "Internal initiative",
+          strategicPillar: formValues.strategicPillar,
+          budget: budgetLabel,
+          overallScore: assessment.score,
+          currentRisk: "To be assessed",
+          whatHappenedLastMonth: "No update recorded yet.",
+          currentPosition: "Submitted into the intake workflow.",
+          next30DaysPipeline: "Review required documents and confirm governance actions.",
+          steeringDecisionNeeded: "Confirm governance ownership and the first sponsor checkpoint.",
+          businessObjective: formValues.oneLineJustification,
+          projectHealthChartData: buildRadarDefaults(assessment.score),
+          projectHealthTriangleData: buildTriangleFromIndicators({
+            overallScore: assessment.score,
+            status: projectStatusFromForm(formValues.status),
+            currentRisk: "To be assessed"
+          }),
+          healthCheckReportUrl: "",
+          createdBy: existingDraft?.createdBy || currentUser.name,
+          draftFormValues: null
+        };
+
+        setProjects((current) => [project, ...current.filter((item) => item.id !== project.id)]);
+        resetDraftState();
+        setIsIntakeOpen(false);
+      };
+
+      const openProject = (project) => setSelectedProject(project);
+      const onNavClick = (key) => {
+        if (key === "portfolio-home" || key === "my-projects" || key === "roadmap") {
+          setActiveNavKey(key);
+          setIsNavOpen(false);
+        }
+      };
+
+      const onProjectRowKeyDown = (event, project) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openProject(project);
+        }
+      };
+
+      return (
+        <>
+          <div className={`app-shell ${isNavOpen ? "nav-open" : ""}`}>
+            <div className={`sidebar-overlay ${isNavOpen ? "show" : ""}`} onClick={() => setIsNavOpen(false)}></div>
+            <aside className="sidebar">
+              <div className="brand-block">
+                <div className="logo-row">
+                  <img className="brand-logo" src="assets/mks-logo.svg" alt="Moore Kingston Smith logo" />
+                  <div className="logo-text">
+                    <strong>MOORE</strong>
+                    <span>Kingston Smith</span>
+                  </div>
+                </div>
+                <p className="brand-tag">Realising ambitions, together</p>
+                <p className="brand-product">The MKS Way</p>
+              </div>
+
+              <div className="nav-section">
+                <p className="nav-heading">Navigation</p>
+                <nav className="nav">
+                  {sidebarNav.map((item) => (
+                    <button key={item.key} className={`nav-link ${activeNavKey === item.key ? "active" : ""}`} type="button" onClick={() => onNavClick(item.key)}>
+                      <Icon icon={item.icon} />
+                      {item.label}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+
+              <div className="sidebar-footer">
+                <button className="user-card user-profile-btn" type="button" onClick={() => openProfile(currentUser.name)}>
+                  <div className="avatar">HK</div>
+                  <div className="user-meta">
+                    <strong>{currentUser.name}</strong>
+                    <span>{currentUser.roleLabel}</span>
+                  </div>
+                </button>
+              </div>
+            </aside>
+
+            <main className="main-content">
+              <header className="topbar">
+                <div className="topbar-left">
+                  <button className="hamburger-btn" type="button" aria-label="Open menu" onClick={() => setIsNavOpen(true)}><Icon icon="menu" className="icon-only-svg" /></button>
+                  <div className="topbar-brand">
+                    <img className="topbar-logo" src="assets/mks-logo.svg" alt="Moore Kingston Smith logo" />
+                    <span>Moore Kingston Smith</span>
+                  </div>
+                  <div className="topbar-title">
+                    <h1>{pageTitle}</h1>
+                    <span className="count-badge">{isRoadmapView ? `${accessibleProjects.filter((project) => project.status !== "Draft").length} roadmap projects` : `${filteredProjects.length} projects`}</span>
+                  </div>
+                </div>
+                <button className="primary-btn" type="button" onClick={startNewProject}>+ New project</button>
+              </header>
+
+              <div className="content-area">
+                {isRoadmapView ? (
+                  <RoadmapView projects={accessibleProjects} scale={roadmapScale} onScaleChange={setRoadmapScale} />
+                ) : (
+                  <>
+                    <section className="stat-grid">
+                      <article className="stat-card stat-blue"><div className="stat-chip"></div><p className="stat-label">Total projects</p><p className="stat-value">{filteredProjects.length}</p><div className="stat-subtext">All departments</div></article>
+                      <article className="stat-card stat-green"><div className="stat-chip"></div><p className="stat-label">Active</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Active").length}</p><div className="stat-subtext">In delivery</div></article>
+                      <article className="stat-card stat-orange"><div className="stat-chip"></div><p className="stat-label">On hold</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "On hold").length}</p><div className="stat-subtext">Paused</div></article>
+                      <article className="stat-card stat-grey"><div className="stat-chip"></div><p className="stat-label">Completed</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Completed").length}</p><div className="stat-subtext">Closed out</div></article>
+                    </section>
+
+                    <section className="toolbar">
+                      <div className="search-wrap"><input className="search-input" type="search" placeholder="Search projects..." value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+                      <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{intakeOptions.statuses.map((status) => <option key={status}>{status}</option>)}</select>
+                      <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}><option>All departments</option>{departments.map((department) => <option key={department}>{department}</option>)}</select>
+                      <select value={pmFilter} onChange={(event) => setPmFilter(event.target.value)}><option>All PMs</option>{managers.map((manager) => <option key={manager}>{manager}</option>)}</select>
+                      <select value={sponsorFilter} onChange={(event) => setSponsorFilter(event.target.value)}><option>All sponsors</option>{sponsors.map((sponsor) => <option key={sponsor}>{sponsor}</option>)}</select>
+                      <button className="secondary-btn clear-filters-btn" type="button" onClick={clearFilters}>Clear filters</button>
+                    </section>
+
+                    <section>
+                      <div className="section-header">
+                        <p className="section-title">{pageSectionTitle}</p>
+                        <p className="section-copy">{pageSectionCopy}</p>
+                      </div>
+                      <div className="portfolio-table-wrap desktop-only">
+                        <table className="portfolio-table">
+                          <thead>
+                            <tr>
+                              {columnDefinitions.map((column) => (
+                                <th key={column.key}>
+                                  <div className="table-header-cell">
+                                    <button className="table-header-btn" type="button" onClick={() => toggleSort(column.key)} disabled={column.key === "action"}>
+                                      <span>{column.label}</span>
+                                      {column.key !== "action" && sortConfig.key === column.key && <span className="sort-state">{sortConfig.direction === "asc" ? "Asc" : "Desc"}</span>}
+                                      {column.key !== "action" && <Icon icon="sort" className="table-sort-svg" />}
+                                    </button>
+                                  </div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sortedProjects.map((project) => (
+                              <tr key={project.id} className="clickable-row" tabIndex={0} onClick={() => openProject(project)} onKeyDown={(event) => onProjectRowKeyDown(event, project)}>
+                                <td><div className="project-main">{project.name}</div><div className="project-sub">{project.projectType}</div></td>
+                                <td><span className={`status-pill ${getStatusClass(project.status)}`}>{project.status}</span></td>
+                                <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.projectManager); }}>{project.projectManager}</button></td>
+                                <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.primarySponsor); }}>{project.primarySponsor}</button></td>
+                                <td>{project.department}</td>
+                                <td><span className="size-badge">{project.tshirtSize}</span></td>
+                                <td><div className="progress-wrap"><div className="progress-track"><div className={`progress-bar ${getProgressClass(project.status)}`} style={{ width: `${project.completionPercentage}%` }}></div></div><span className="progress-value">{project.completionPercentage}%</span></div></td>
+                                <td className="row-action-cell">
+                                  {canResumeProject(project) ? (
+                                    <button
+                                      className="secondary-btn table-action-btn"
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        resumeDraftProject(project);
+                                      }}
+                                    >
+                                      Resume form
+                                    </button>
+                                  ) : (
+                                    <span className="table-action-placeholder">View details</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {!filteredProjects.length && <p className="empty-state">No projects match this view and filter combination right now.</p>}
+                    </section>
+                  </>
+                )}
+              </div>
+            </main>
+          </div>
+
+          <Modal isOpen={isIntakeOpen} onClose={() => setIsIntakeOpen(false)} titleId="projectIntakeTitle">
+            <div className="modal-header">
+              <div><p className="eyebrow">{editingDraftId ? "Resume draft" : "New project"}</p><h3 id="projectIntakeTitle">{editingDraftId ? "Resume project intake" : "Project intake"}</h3></div>
+              <button className="icon-btn" type="button" aria-label="Close intake form" onClick={() => setIsIntakeOpen(false)}><Icon icon="close" className="icon-only-svg" /></button>
+            </div>
+
+            <form className="project-form" onSubmit={submitProject}>
+              <div className="form-grid">
+                <label><span>Project Name *</span><input type="text" name="projectName" value={formValues.projectName} onChange={onChange} required /></label>
+                <label><span>Project Manager *</span><input type="text" name="projectManager" value={formValues.projectManager} onChange={onChange} required /></label>
+                <label><span>Primary Sponsor *</span><input type="text" name="primarySponsor" value={formValues.primarySponsor} onChange={onChange} required /></label>
+                <label><span>Strategic Pillar *</span><select name="strategicPillar" value={formValues.strategicPillar} onChange={onChange} required><option value="">Select</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+                <label><span>Department *</span><select name="department" value={formValues.department} onChange={onChange} required><option value="">Select</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+                <label><span>Status *</span><select name="status" value={formValues.status} onChange={onChange} required><option value="">Select</option>{intakeOptions.statuses.filter((item) => item !== "Completed").map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+                <label><span>Estimated Budget *</span><select name="budgetBand" value={formValues.budgetBand} onChange={onChange} required><option value="">Select</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                <label><span>Delivery Timeline *</span><select name="deliveryTimeline" value={formValues.deliveryTimeline} onChange={onChange} required><option value="">Select</option>{intakeOptions.deliveryTimeline.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                <label><span>Impacted Teams *</span><select name="impactedTeams" value={formValues.impactedTeams} onChange={onChange} required><option value="">Select</option>{intakeOptions.impactedTeams.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                <label><span>Client Sensitive Data *</span><select name="clientSensitiveData" value={formValues.clientSensitiveData} onChange={onChange} required><option value="">Select</option><option value="no">No</option><option value="yes">Yes</option></select></label>
+                <label><span>Audience Type *</span><select name="audienceType" value={formValues.audienceType} onChange={onChange} required><option value="">Select</option>{intakeOptions.audienceType.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                <label><span>Strategic Importance *</span><select name="strategicImportance" value={formValues.strategicImportance} onChange={onChange} required><option value="">Select</option>{intakeOptions.strategicImportance.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+              </div>
+
+              <label className="full-width"><span>One-line Justification *</span><textarea name="oneLineJustification" rows="3" value={formValues.oneLineJustification} onChange={onChange} required placeholder="Summarise the business objective and expected outcome."></textarea></label>
+
+              <section className="score-panel">
+                <div className="score-card"><span>Total Project Score</span><strong>{assessment ? `${assessment.score}/${assessment.scoreOutOf}` : "-"}</strong></div>
+                <div className="score-card"><span>T-shirt Size</span><strong>{assessment ? assessment.tshirtSize : "-"}</strong></div>
+                <div className="score-card"><span>Recommended Route</span><strong>{assessment ? assessment.recommendedRoute : "Complete the form"}</strong></div>
+              </section>
+
+              <section className="justification-card">
+                <strong>{assessment ? assessment.explanation : "Complete the intake to see why the project has been scored and routed this way."}</strong>
+              </section>
+
+              <section className="guidance-panel">
+                <div><p className="eyebrow">Required Documents</p><h4>Download, complete, and attach each required document</h4></div>
+                <div className="document-grid">
+                  {(assessment ? assessment.requiredDocuments : []).map((doc) => (
+                    <div className="document-item" key={doc}>
+                      <div className="document-meta"><strong>{doc}</strong><span>{documentTemplates[doc]?.note || "Required for this route."}</span></div>
+                      <div className="document-actions">
+                        <a className="doc-link" href={documentTemplates[doc]?.file} download>Download</a>
+                        <input className="file-input" type="file" aria-label={`Attach ${doc}`} accept=".doc,.docx,.pdf" />
+                      </div>
+                    </div>
+                  ))}
+                  {!assessment && <p className="form-note">Complete the mandatory fields to show the actual required documents here.</p>}
+                </div>
+              </section>
+
+              {draftMessage && <p className="form-note">{draftMessage}</p>}
+
+              <div className="form-actions">
+                <button className="secondary-btn" type="button" onClick={saveDraft}>{editingDraftId ? "Update draft" : "Save draft"}</button>
+                <button className="primary-btn" type="submit">Submit application</button>
+              </div>
+            </form>
+          </Modal>
+
+          <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} canEditProject={currentUser.isAdmin} onSaveProjectEdits={saveProjectEdits} onOpenProfile={openProfile} />
+          <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
 </body>
 </html>
