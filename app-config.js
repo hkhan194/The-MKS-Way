@@ -6,11 +6,12 @@
 window.APP_CONFIG = {
   currentUser: mksCurrentUser,
   sidebarNav: [
-    { key: "portfolio-home", label: "Portfolio home", icon: "grid", active: true },
+    { key: "portfolio-home", label: "Home", icon: "grid", active: true },
     { key: "my-projects", label: "My projects", icon: "briefcase", active: false },
-    { key: "roadmap", label: "Roadmap", icon: "route", active: false },
-    { key: "reports", label: "Reports", icon: "chart", active: false },
-    { key: "settings", label: "Settings", icon: "cog", active: false }
+    { key: "roadmap", label: "Roadmap", icon: "roadmapchart", active: false },
+    { key: "reports", label: "Reports", icon: "sheet", active: false },
+    { key: "settings", label: "Settings", icon: "cog", active: false },
+    { key: "help", label: "Help", icon: "help", active: false }
   ],
   intakeOptions: {
     strategicPillars: [
@@ -44,7 +45,8 @@ window.APP_CONFIG = {
     ],
     audienceType: [
       { value: "internal", label: "Internal Only" },
-      { value: "client", label: "Client Facing" }
+      { value: "client", label: "Client Facing" },
+      { value: "both", label: "Internal plus client" }
     ],
     strategicImportance: [
       { value: "low", label: "Low" },

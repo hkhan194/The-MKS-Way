@@ -570,7 +570,10 @@
         grid: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
         briefcase: "M3 8h18v11H3zM9 8V6h6v2M10 12h4",
         route: "M6 18a2 2 0 1 0 0 0M18 6a2 2 0 1 0 0 0M8 18h6a4 4 0 0 0 4-4V8",
+        timeline: "M5 18V10M10 18V6M15 18V13M20 18V4",
         chart: "M5 19V10M12 19V5M19 19v-8",
+        roadmapchart: "M4 18h16M6 15l4-4 3 2 5-6",
+        sheet: "M8 3h6l5 5v13H8zM14 3v5h5M10 13h7M10 17h7",
         cog: "M12 8.5A3.5 3.5 0 1 0 12 15.5A3.5 3.5 0 1 0 12 8.5zM12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1",
         menu: "M4 7h16M4 12h16M4 17h16",
         close: "M6 6l12 12M18 6L6 18",
@@ -589,6 +592,7 @@
       if (key === "roadmap") return "roadmap.html";
       if (key === "reports") return "reports.html";
       if (key === "settings") return "settings.html";
+      if (key === "help") return "help.html";
       return "index.html";
     }
 
@@ -646,11 +650,11 @@
               return <circle key={`${label}-${value}`} cx={x} cy={y} r="4" className={`radar-point radar-point-${value}`} />;
             })}
           </svg>
-          <p className="radar-scale-note">Closer to the outside means that area is in a better place.</p>
+          <p className="radar-scale-note">The closer the shape is to the outside, the healthier that area is right now.</p>
           <div className="radar-scale" aria-label="Project health legend">
-            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-watch" aria-hidden="true"></span>Needs attention</span>
-            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-track" aria-hidden="true"></span>On track</span>
-            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-strong" aria-hidden="true"></span>In a good place</span>
+            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-watch" aria-hidden="true"></span>Needs support</span>
+            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-track" aria-hidden="true"></span>Needs watching</span>
+            <span className="radar-legend-item"><span className="radar-legend-dot radar-legend-dot-strong" aria-hidden="true"></span>In a healthy place</span>
           </div>
         </div>
       );
@@ -727,7 +731,7 @@
       );
     }
 
-    function FormFieldLabel({ title, required = false, driver = false }) {
+    function FormFieldLabel({ title, required = false, driver = false, helper = "" }) {
       return (
         <div className="field-label-block">
           <span className="field-label-text">
@@ -735,6 +739,7 @@
             {required && <span className="required-asterisk">*</span>}
             {driver && <span className="field-driver-inline">drives score and size</span>}
           </span>
+          {helper && <span className="field-helper-copy">{helper}</span>}
         </div>
       );
     }
@@ -838,7 +843,7 @@
             <section className="detail-card summary-card">
               <div className="section-header-row">
                 <div className="section-title-row">
-                  <p className="section-title">Portfolio snapshot</p>
+                  <p className="section-title">Project snapshot</p>
                 </div>
               </div>
               {project.status === "Draft" && canResumeDraft && (
@@ -850,32 +855,10 @@
                   <button className="primary-btn" type="button" onClick={() => onResumeDraft(project)}>Resume form completion</button>
                 </div>
               )}
-              {isSubmittedStyleProject && (
-                <div className="submission-journey-card">
-                  <p className="submission-journey-title">Submission status</p>
-                  <div className="submission-journey-line">
-                    {submissionJourney.steps.map((step, index) => (
-                      <React.Fragment key={`${project.id}-${step.label}`}>
-                        <span className={`submission-step-inline submission-step-inline-${step.state}`}>{step.label}</span>
-                        {index < submissionJourney.steps.length - 1 && <span className="submission-journey-separator">○</span>}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="summary-highlight">
-                <p className="summary-highlight-label">Business objective</p>
-                <p className="summary-highlight-copy">{project.businessObjective}</p>
-              </div>
               <div className="summary-grid">
                 <div><dt>Completion percentage</dt><dd>{project.completionPercentage}%</dd></div>
                 <div><dt>Overall score</dt><dd>{project.overallScore}/100</dd></div>
                 <div><dt>Current status</dt><dd>{submissionJourney.currentStatus}</dd></div>
-              </div>
-              <div className="progress-wrap detail-progress">
-                <div className="progress-track detail-progress-track">
-                  <div className={`progress-bar ${getProgressClass(project.status)}`} style={{ width: `${project.completionPercentage}%` }}></div>
-                </div>
               </div>
             </section>
 
@@ -883,7 +866,7 @@
               <section className="detail-card">
                 <div className="section-header-row">
                   <div className="section-title-row">
-                    <p className="section-title">Project context</p>
+                    <p className="section-title">Project details</p>
                   </div>
                   {canEditProject && (
                     <div className="section-actions">
@@ -910,6 +893,7 @@
                     <div><dt>Project Type</dt><dd>{project.projectType}</dd></div>
                     <div><dt>Strategic Pillar</dt><dd>{project.strategicPillar}</dd></div>
                     <div><dt>Budget</dt><dd>{project.budget}</dd></div>
+                    <div className="detail-list-full"><dt>Business objective</dt><dd>{project.businessObjective}</dd></div>
                   </dl>
                   {modalSubmittedDocuments?.length ? (
                     <div className="compact-documents-block">
@@ -945,11 +929,6 @@
                     <p className="section-title">Monthly update and steering</p>
                   </div>
                   <div className="section-actions">
-                    {project.healthCheckReportUrl ? (
-                      <a className="doc-link" href={project.healthCheckReportUrl}>Open Health Check Report</a>
-                    ) : (
-                      <button className="secondary-btn" type="button" disabled>No report available</button>
-                    )}
                     {canEditProject && (
                       <>
                         {isUpdateEditing && <button className="secondary-btn section-save-btn" type="button" onClick={saveUpdates}>Save</button>}
@@ -997,7 +976,7 @@
                 </div>
                 {isHealthOpen ? (
                   <>
-                    <p className="radar-intro">A quick view of where the project feels strongest and where it needs more attention.</p>
+                    <p className="radar-intro">A quick view of where the project looks healthy and where it may need more support.</p>
                     <div className="health-grid">
                       <div className="health-panel">
                         <p className="health-panel-title">Radar view</p>
@@ -1111,6 +1090,7 @@
       const [isPortfolioViewOpen, setIsPortfolioViewOpen] = useState(false);
       const [expandedProjectIds, setExpandedProjectIds] = useState([]);
       const [show2027, setShow2027] = useState(false);
+      const [selectedMilestoneId, setSelectedMilestoneId] = useState(null);
 
       const monthlySegments = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -1334,6 +1314,48 @@
         ));
       };
 
+      const getMilestoneSummary = (project, phase) => {
+        const milestoneDate = lifecycleSegments[Math.max(0, (phase.milestoneSegment || phase.displayEnd || 1) - 1)] || "";
+        const achievedText = phase.phaseProgress >= 100
+          ? `${phase.label} is complete and ready to hand into the next stage.`
+          : phase.phaseProgress > 0
+            ? `${phase.label} is underway and key work has already started.`
+            : `${phase.label} has been mapped out and is waiting to begin.`;
+        return {
+          title: `${project.name} milestone`,
+          milestone: phase.currentTask,
+          achieved: achievedText,
+          byWhen: milestoneDate,
+          next: phase.supportingTask || "Confirm the next agreed step and owner."
+        };
+      };
+
+      const getMilestonePopoverStyle = (phase) => {
+        const anchorPercent = ((phase.displayEnd - 0.2) / lifecycleSegmentCount) * 100;
+        if (anchorPercent >= 84) {
+          return {
+            right: "8px",
+            left: "auto",
+            top: "-12px",
+            transform: "translateY(-100%)"
+          };
+        }
+        if (anchorPercent <= 16) {
+          return {
+            left: "8px",
+            right: "auto",
+            top: "-12px",
+            transform: "translateY(-100%)"
+          };
+        }
+        return {
+          left: `${anchorPercent}%`,
+          right: "auto",
+          top: "-12px",
+          transform: "translate(-50%, -100%)"
+        };
+      };
+
       const PortfolioViewModal = () => (
         <Modal isOpen={isPortfolioViewOpen} onClose={() => setIsPortfolioViewOpen(false)} titleId="portfolioViewTitle" panelClassName="modal-panel-fullscreen modal-panel-portfolio-view">
           <div className="detail-modal overall-roadmap-modal">
@@ -1473,8 +1495,12 @@
                       </div>
 
                       {isExpanded && <div className="roadmap-phase-list roadmap-phase-list-simple">
-                        {item.phases.map((phase) => (
-                          <div className="roadmap-phase-row roadmap-phase-row-simple" key={`${item.project.id}-${phase.key}`}>
+                        {item.phases.map((phase) => {
+                          const milestoneId = `${item.project.id}-${phase.key}`;
+                          const milestoneSummary = getMilestoneSummary(item.project, phase);
+                          const isMilestoneOpen = selectedMilestoneId === milestoneId;
+                          return (
+                          <div className="roadmap-phase-row roadmap-phase-row-simple" key={milestoneId}>
                             <div className="roadmap-phase-meta">
                               <p className="roadmap-phase-title">{phase.label}</p>
                               <p className="roadmap-phase-description">{phase.description}</p>
@@ -1492,12 +1518,32 @@
                                 >
                                   <div className={`roadmap-task-progress roadmap-bar-progress-${phase.tone}`} style={{ width: `${phase.phaseProgress}%` }}></div>
                                   <span className="roadmap-task-percent">{phase.phaseProgress}%</span>
-                                  <div className="roadmap-milestone roadmap-milestone-end" aria-label={`Milestone for ${phase.label}`}></div>
+                                  <button
+                                    className="roadmap-milestone roadmap-milestone-end"
+                                    type="button"
+                                    title={`${milestoneSummary.milestone} • By ${milestoneSummary.byWhen}`}
+                                    aria-label={`Open milestone details for ${phase.label}`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setSelectedMilestoneId((current) => current === milestoneId ? null : milestoneId);
+                                    }}
+                                  >
+                                    <span className="roadmap-milestone-diamond"></span>
+                                  </button>
                                 </div>
+                                {isMilestoneOpen && (
+                                  <div className="roadmap-milestone-popover" style={getMilestonePopoverStyle(phase)}>
+                                    <strong>{milestoneSummary.milestone}</strong>
+                                    <p><bdi>What this milestone is about:</bdi> {phase.label}</p>
+                                    <p><bdi>What we have achieved:</bdi> {milestoneSummary.achieved}</p>
+                                    <p><bdi>By when:</bdi> {milestoneSummary.byWhen}</p>
+                                    <p><bdi>What is next:</bdi> {milestoneSummary.next}</p>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                        ))}
+                        )})}
                       </div>}
                     </article>
                   );
@@ -1589,14 +1635,13 @@
       const [searchTerm, setSearchTerm] = useState("");
       const [departmentFilter, setDepartmentFilter] = useState("All departments");
       const [sponsorFilter, setSponsorFilter] = useState("All sponsors");
-      const [projectManagerFilter, setProjectManagerFilter] = useState("All project managers");
-      const [statusFilter, setStatusFilter] = useState("All statuses");
-      const [selectedGovernanceProjectId, setSelectedGovernanceProjectId] = useState(null);
+      const [projectManagerFilter, setProjectManagerFilter] = useState("All managers");
+      const [ragFilter, setRagFilter] = useState("All RAG statuses");
 
       const departments = [...new Set(reportProjects.map((project) => project.department).filter(Boolean))];
       const sponsors = [...new Set(reportProjects.map((project) => project.primarySponsor).filter(Boolean))];
       const projectManagers = [...new Set(reportProjects.map((project) => project.projectManager).filter(Boolean))];
-      const statuses = [...new Set(reportProjects.map((project) => project.status).filter(Boolean))];
+
       const governanceProjects = reportProjects.map((project) => {
         const governanceRag = buildGovernanceSignals(project);
         const overallRag = governanceRag.time === "Red" || governanceRag.budget === "Red" || governanceRag.scope === "Red"
@@ -1604,38 +1649,99 @@
           : governanceRag.time === "Amber" || governanceRag.budget === "Amber" || governanceRag.scope === "Amber"
             ? "Amber"
             : "Green";
+        const governanceSummary = getGovernanceSummary(project);
+        const actionOwner = governanceSummary.upcomingRisk?.owner && governanceSummary.upcomingRisk.owner !== "To be confirmed"
+          ? governanceSummary.upcomingRisk.owner
+          : project.projectManager && project.projectManager !== "To be confirmed"
+            ? project.projectManager
+            : project.primarySponsor || "To be confirmed";
+        const actionDeadline = governanceSummary.upcomingRisk?.deadline
+          || (project.status === "Submitted"
+            ? "Next decision board"
+            : project.status === "Planning"
+              ? "Next planning review"
+              : "Next monthly review");
+        const actionRequired = governanceSummary.upcomingRisk?.title
+          || project.steeringDecisionNeeded
+          || project.next30DaysPipeline
+          || "Confirm the next agreed action and owner.";
+        const whatsGoingWrong = governanceSummary.existingIssue
+          || governanceSummary.upcomingRisk?.cause
+          || project.currentPosition
+          || "No live issue is currently being reported.";
+        const whyItMatters = project.status === "Submitted"
+          ? "A decision is needed before discovery or planning can begin."
+          : overallRag === "Red"
+            ? "This could delay delivery or increase cost if it is not resolved quickly."
+            : overallRag === "Amber"
+              ? "This needs close monitoring so it does not turn into a live delivery issue."
+              : "This is currently manageable, but the next action still needs to stay on track.";
+        const urgencyScore = (overallRag === "Red" ? 300 : overallRag === "Amber" ? 200 : 100)
+          + (project.status === "Submitted" ? 40 : 0)
+          + (project.status === "On hold" ? 50 : 0)
+          + (project.currentRisk === "High" ? 35 : project.currentRisk === "Medium" ? 15 : 0)
+          + Math.max(0, 100 - project.completionPercentage);
 
         return {
           ...project,
           governanceRag,
+          governanceSummary,
           overallRag,
-          issueSeverity: getGovernanceIssueSeverity(project),
-          governanceSummary: getGovernanceSummary(project)
+          actionOwner,
+          actionDeadline,
+          actionRequired,
+          whatsGoingWrong,
+          whyItMatters,
+          urgencyScore
         };
       });
+
       const filteredProjects = governanceProjects.filter((project) => {
-        const haystack = [project.name, project.department, project.primarySponsor, project.projectManager, project.status].join(" ").toLowerCase();
+        const haystack = [project.name, project.department, project.primarySponsor, project.projectManager].join(" ").toLowerCase();
         const matchesSearch = !searchTerm || haystack.includes(searchTerm.toLowerCase());
         const matchesDepartment = departmentFilter === "All departments" || project.department === departmentFilter;
         const matchesSponsor = sponsorFilter === "All sponsors" || project.primarySponsor === sponsorFilter;
-        const matchesProjectManager = projectManagerFilter === "All project managers" || project.projectManager === projectManagerFilter;
-        const matchesStatus = statusFilter === "All statuses" || project.status === statusFilter;
-        return matchesSearch && matchesDepartment && matchesSponsor && matchesProjectManager && matchesStatus;
+        const matchesProjectManager = projectManagerFilter === "All managers" || project.projectManager === projectManagerFilter;
+        const matchesRag = ragFilter === "All RAG statuses" || project.overallRag === ragFilter;
+        return matchesSearch && matchesDepartment && matchesSponsor && matchesProjectManager && matchesRag;
       });
+
       const summaryCounts = {
         total: filteredProjects.length,
         green: filteredProjects.filter((project) => project.overallRag === "Green").length,
         amber: filteredProjects.filter((project) => project.overallRag === "Amber").length,
         red: filteredProjects.filter((project) => project.overallRag === "Red").length
       };
-      const selectedGovernanceProject = governanceProjects.find((project) => project.id === selectedGovernanceProjectId) || null;
+
+      const urgentCandidates = filteredProjects.filter((project) => (
+        project.overallRag !== "Green"
+        || project.status === "Submitted"
+        || project.status === "On hold"
+      ));
+
+      const immediateActions = (urgentCandidates.length ? urgentCandidates : filteredProjects)
+        .slice()
+        .sort((left, right) => right.urgencyScore - left.urgencyScore)
+        .slice(0, 3);
+
+      const clearReportFilters = () => {
+        setSearchTerm("");
+        setDepartmentFilter("All departments");
+        setSponsorFilter("All sponsors");
+        setProjectManagerFilter("All managers");
+        setRagFilter("All RAG statuses");
+      };
 
       return (
         <>
           <section className="content-panel governance-hero">
             <div className="governance-hero-copy">
               <h2 className="governance-title">PMO Governance Report</h2>
-              <p className="section-copy">A clear portfolio-level view for project managers to monitor delivery health, risks, and live issues across projects.</p>
+              <p className="section-copy">A simple portfolio-level view of delivery health, the next action needed, and where leadership attention is required.</p>
+              <a className="governance-help-link" href="help.html#reports-help">
+                <Icon icon="help" className="inline-help-svg" />
+                How to use this report
+              </a>
             </div>
             <div className="governance-summary-grid">
               <article className="governance-summary-card governance-summary-total"><span>Total projects</span><strong>{summaryCounts.total}</strong></article>
@@ -1647,7 +1753,9 @@
 
           <section className="content-panel governance-filter-panel">
             <div className="governance-filter-grid">
-              <div className="search-wrap governance-search"><input className="search-input" type="search" placeholder="Search project..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} /></div>
+              <div className="search-wrap governance-search">
+                <input className="search-input" type="search" placeholder="Search project" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+              </div>
               <select className="roadmap-filter-select" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
                 <option>All departments</option>
                 {departments.map((item) => <option key={item}>{item}</option>)}
@@ -1657,162 +1765,166 @@
                 {sponsors.map((item) => <option key={item}>{item}</option>)}
               </select>
               <select className="roadmap-filter-select" value={projectManagerFilter} onChange={(event) => setProjectManagerFilter(event.target.value)}>
-                <option>All project managers</option>
+                <option>All managers</option>
                 {projectManagers.map((item) => <option key={item}>{item}</option>)}
               </select>
-              <select className="roadmap-filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                <option>All statuses</option>
-                {statuses.map((item) => <option key={item}>{item}</option>)}
+              <select className="roadmap-filter-select" value={ragFilter} onChange={(event) => setRagFilter(event.target.value)}>
+                <option>All RAG statuses</option>
+                <option>Green</option>
+                <option>Amber</option>
+                <option>Red</option>
               </select>
+              <button className="secondary-btn clear-filters-btn" type="button" onClick={clearReportFilters}>Clear filters</button>
             </div>
           </section>
 
           {!reportProjects.length ? (
             <EmptyState title="There are no reportable projects yet." action="Submit a project or move a draft into the live portfolio to start seeing governance reporting here." />
           ) : !filteredProjects.length ? (
-            <EmptyState title="No projects match the current report filters." action="Clear one or two filters or search for a broader project name to bring the governance cards back." />
+            <EmptyState title="No projects match the current report filters." action="Clear one or two filters or search for a broader project name to bring the report back." />
           ) : (
-            <section className="governance-card-grid">
-              {filteredProjects.map((project) => (
-                <article className="governance-card" key={`report-${project.id}`}>
-                  <div className="governance-card-header">
-                    <div className="governance-card-copy">
-                      <h4>{project.name}</h4>
-                      <p>{project.department} • Sponsor: {project.primarySponsor}</p>
-                      <p>PM: {project.projectManager || "To be confirmed"} • Status: {project.status}</p>
-                    </div>
-                    <div className="governance-card-header-actions">
-                      <span className={`governance-rag-pill ${getGovernanceRagClass(project.overallRag)}`}>{project.overallRag}</span>
-                      <button
-                        className="secondary-btn governance-expand-btn"
-                        type="button"
-                        onClick={() => setSelectedGovernanceProjectId(project.id)}
-                      >
-                        Open report
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="governance-accomplishment-row">
-                    <div>
-                      <span>Accomplishment</span>
-                      <strong>{project.completionPercentage}%</strong>
-                    </div>
-                    <div>
-                      <span>Issue criticality</span>
-                      <strong className={`governance-issue-severity governance-issue-${project.issueSeverity.toLowerCase()}`}>{project.issueSeverity}</strong>
-                    </div>
-                  </div>
-
-                  <div className="progress-track governance-progress-track">
-                    <div className={`progress-bar ${getProgressClass(project.status)}`} style={{ width: `${project.completionPercentage}%` }}></div>
-                  </div>
-
-                  <div className="governance-rag-row">
-                    <span className="governance-rag-label">RAG health</span>
-                    <div className="governance-rag-items">
-                      <span>Time <bdi className={`governance-rag-chip ${getGovernanceRagClass(project.governanceRag.time)}`}>{project.governanceRag.time}</bdi></span>
-                      <span>Budget <bdi className={`governance-rag-chip ${getGovernanceRagClass(project.governanceRag.budget)}`}>{project.governanceRag.budget}</bdi></span>
-                      <span>Scope <bdi className={`governance-rag-chip ${getGovernanceRagClass(project.governanceRag.scope)}`}>{project.governanceRag.scope}</bdi></span>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </section>
-          )}
-
-          {selectedGovernanceProject && (
-            <div className="modal show" role="dialog" aria-modal="true">
-              <div className="modal-backdrop" onClick={() => setSelectedGovernanceProjectId(null)}></div>
-              <div className="modal-panel modal-panel-fullscreen governance-report-modal">
-                <div className="modal-header">
-                  <div>
-                    <h2>{selectedGovernanceProject.name}</h2>
-                    <p className="modal-subtitle">{selectedGovernanceProject.department} • Sponsor: {selectedGovernanceProject.primarySponsor} • PM: {selectedGovernanceProject.projectManager || "To be confirmed"}</p>
-                  </div>
-                  <button className="modal-close" type="button" onClick={() => setSelectedGovernanceProjectId(null)} aria-label="Close">×</button>
+            <>
+              <section className="governance-section">
+                <div className="governance-section-header">
+                  <h3>Immediate action needed</h3>
+                  <span>Priority 1 to 3 for the current report view</span>
                 </div>
-
-                <div className="governance-modal-summary">
-                  <span className={`governance-rag-pill ${getGovernanceRagClass(selectedGovernanceProject.overallRag)}`}>{selectedGovernanceProject.overallRag}</span>
-                  <span className="governance-modal-meta-pill">{selectedGovernanceProject.status}</span>
-                  <span className="governance-modal-meta-pill">{selectedGovernanceProject.completionPercentage}% complete</span>
-                </div>
-
-                <div className="governance-modal-grid">
-                  <div className="governance-modal-main">
-                    <div className="governance-rag-row">
-                      <span className="governance-rag-label">RAG health</span>
-                      <div className="governance-rag-items">
-                        <span>Time <bdi className={`governance-rag-chip ${getGovernanceRagClass(selectedGovernanceProject.governanceRag.time)}`}>{selectedGovernanceProject.governanceRag.time}</bdi></span>
-                        <span>Budget <bdi className={`governance-rag-chip ${getGovernanceRagClass(selectedGovernanceProject.governanceRag.budget)}`}>{selectedGovernanceProject.governanceRag.budget}</bdi></span>
-                        <span>Scope <bdi className={`governance-rag-chip ${getGovernanceRagClass(selectedGovernanceProject.governanceRag.scope)}`}>{selectedGovernanceProject.governanceRag.scope}</bdi></span>
+                <div className="governance-action-grid">
+                  {immediateActions.map((project, index) => (
+                    <article className="governance-action-card" key={`action-${project.id}`}>
+                      <div className="governance-action-header">
+                        <div>
+                          <span className="governance-priority-badge">Priority {index + 1}</span>
+                          <h4>{project.name}</h4>
+                          <p>{project.department} • {project.status}</p>
+                        </div>
+                        <span className={`governance-rag-pill ${getGovernanceRagClass(project.overallRag)}`}>{project.overallRag}</span>
                       </div>
-                    </div>
 
-                    <div className="governance-accomplishment-row governance-accomplishment-row-compact">
-                      <div>
-                        <span>Accomplishment</span>
-                        <strong>{selectedGovernanceProject.completionPercentage}%</strong>
+                      <div className="governance-action-item governance-action-item-primary">
+                        <span>Action required</span>
+                        <strong>{project.actionRequired}</strong>
                       </div>
-                      <div>
-                        <span>Issue criticality</span>
-                        <strong className={`governance-issue-severity governance-issue-${selectedGovernanceProject.issueSeverity.toLowerCase()}`}>{selectedGovernanceProject.issueSeverity}</strong>
-                      </div>
-                    </div>
 
-                    <div className="progress-track governance-progress-track">
-                      <div className={`progress-bar ${getProgressClass(selectedGovernanceProject.status)}`} style={{ width: `${selectedGovernanceProject.completionPercentage}%` }}></div>
-                    </div>
-
-                    <div className="governance-health-grid">
-                      <div className="health-panel">
-                        <p className="health-panel-title">Radar view</p>
-                        <RadarChart data={selectedGovernanceProject.projectHealthChartData} />
+                      <div className="governance-action-item governance-action-item-warning">
+                        <span>What is going wrong</span>
+                        <p>{project.whatsGoingWrong}</p>
                       </div>
-                      <div className="health-panel">
-                        <p className="health-panel-title">Golden triangle</p>
-                        {selectedGovernanceProject.projectHealthTriangleData ? (
-                          <TriangleChart data={selectedGovernanceProject.projectHealthTriangleData} />
-                        ) : (
-                          <p className="chart-empty-state">This view appears once the project has been submitted. Finish and submit the brief to generate it.</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
-                  <aside className="governance-modal-side">
-                    {selectedGovernanceProject.governanceSummary.upcomingRisk && (
-                      <div className="governance-alert governance-alert-upcoming">
-                        <span className="governance-alert-label">Upcoming risk</span>
-                        <strong>{selectedGovernanceProject.governanceSummary.upcomingRisk.title}</strong>
-                        <p>What is causing it: {selectedGovernanceProject.governanceSummary.upcomingRisk.cause}</p>
-                        <div className="governance-alert-meta">
-                          <span>Owner: {selectedGovernanceProject.governanceSummary.upcomingRisk.owner}</span>
-                          <span>Deadline: {selectedGovernanceProject.governanceSummary.upcomingRisk.deadline}</span>
+                      <div className="governance-action-item governance-action-item-impact">
+                        <span>Why it matters</span>
+                        <p>{project.whyItMatters}</p>
+                      </div>
+
+                      <div className="governance-action-footer">
+                        <div className="governance-action-meta-owner">
+                          <span>Owner</span>
+                          <strong>{project.actionOwner}</strong>
+                        </div>
+                        <div className="governance-action-meta-deadline">
+                          <span>Deadline</span>
+                          <strong>{project.actionDeadline}</strong>
                         </div>
                       </div>
-                    )}
-
-                    {selectedGovernanceProject.governanceSummary.existingIssue && (
-                      <div className="governance-alert governance-alert-existing">
-                        <span className="governance-alert-label">Existing issue</span>
-                        <p>{selectedGovernanceProject.governanceSummary.existingIssue}</p>
-                      </div>
-                    )}
-
-                    {!selectedGovernanceProject.governanceSummary.upcomingRisk && !selectedGovernanceProject.governanceSummary.existingIssue && (
-                      <div className="governance-alert governance-alert-clear">
-                        <span className="governance-alert-label">Current position</span>
-                        <strong>No immediate delivery risk is recorded.</strong>
-                        <p>This project is moving forward without a flagged upcoming risk or live issue in the current governance view.</p>
-                      </div>
-                    )}
-                  </aside>
+                    </article>
+                  ))}
                 </div>
-              </div>
-            </div>
+              </section>
+
+              <section className="governance-section">
+                <div className="governance-section-header">
+                  <h3>Portfolio overview</h3>
+                  <span>Quick view of status, ownership, and the next action across the portfolio</span>
+                </div>
+
+                <div className="content-panel governance-overview-panel">
+                  <table className="governance-overview-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Time</th>
+                        <th>Budget</th>
+                        <th>Scope</th>
+                        <th>Action required</th>
+                        <th>Owner</th>
+                        <th>Deadline</th>
+                        <th>Why it matters</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProjects.map((project) => (
+                        <tr key={`overview-${project.id}`}>
+                          <td className="governance-overview-project">
+                            <strong>{project.name}</strong>
+                            <span>{project.department} • Sponsor: {project.primarySponsor}</span>
+                          </td>
+                          <td>{project.status}</td>
+                          <td><span className={`governance-rag-chip ${getGovernanceRagClass(project.governanceRag.time)}`}>{project.governanceRag.time}</span></td>
+                          <td><span className={`governance-rag-chip ${getGovernanceRagClass(project.governanceRag.budget)}`}>{project.governanceRag.budget}</span></td>
+                          <td><span className={`governance-rag-chip ${getGovernanceRagClass(project.governanceRag.scope)}`}>{project.governanceRag.scope}</span></td>
+                          <td>{project.actionRequired}</td>
+                          <td>{project.actionOwner}</td>
+                          <td>{project.actionDeadline}</td>
+                          <td>{project.whyItMatters}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
           )}
+        </>
+      );
+    }
+
+    function HelpView() {
+      return (
+        <>
+          <section className="content-panel">
+            <div className="section-header">
+              <p className="section-title">Help</p>
+              <p className="section-copy">Simple guidance for each part of the portfolio app, written for non-technical users.</p>
+            </div>
+            <div className="help-page-grid">
+              <article className="help-page-card" id="portfolio-home-help">
+                <h3>Portfolio home</h3>
+                <ul className="help-list">
+                  <li>Use the search and filters to quickly find a project by name, status, department, sponsor, or manager.</li>
+                  <li>Select any project row to open the full project summary, updates, and health view.</li>
+                  <li>Use the New project button in the top bar when you want to start a fresh intake.</li>
+                </ul>
+              </article>
+
+              <article className="help-page-card" id="my-projects-help">
+                <h3>My projects</h3>
+                <ul className="help-list">
+                  <li>This view shows the projects linked to you as a manager, sponsor, or owner of a draft.</li>
+                  <li>If a project is still a draft, use Resume form to continue from where you left off.</li>
+                  <li>If the project has been submitted, open it to check its current status and submitted documents.</li>
+                </ul>
+              </article>
+
+              <article className="help-page-card" id="roadmap-help">
+                <h3>Roadmap and portfolio view</h3>
+                <ul className="help-list">
+                  <li>The roadmap shows where each project sits across discovery, planning, delivery, and closure.</li>
+                  <li>Use the filters to narrow the timeline to one department, manager, sponsor, or status.</li>
+                  <li>Use Portfolio view to see every project on one timeline at a higher level.</li>
+                </ul>
+              </article>
+
+              <article className="help-page-card" id="reports-help">
+                <h3>Reports</h3>
+                <ul className="help-list">
+                  <li>Start with Immediate action needed to see the three projects that need the quickest attention.</li>
+                  <li>Use the Portfolio overview table to check status, time, budget, scope, owner, deadline, and why the action matters.</li>
+                  <li>Use Clear filters if the report becomes too narrow and you want to return to the full view.</li>
+                </ul>
+              </article>
+            </div>
+          </section>
         </>
       );
     }
@@ -1904,7 +2016,6 @@
       const [projects, setProjects] = useState(getStoredProjects);
       const [profiles, setProfiles] = useState(getStoredProfiles);
       const [isIntakeOpen, setIsIntakeOpen] = useState(false);
-      const [isHelpOpen, setIsHelpOpen] = useState(false);
       const [selectedProject, setSelectedProject] = useState(null);
       const [selectedPersonName, setSelectedPersonName] = useState("");
       const [isNavOpen, setIsNavOpen] = useState(false);
@@ -1923,6 +2034,7 @@
       const [uploadedDocuments, setUploadedDocuments] = useState({});
       const [submissionReview, setSubmissionReview] = useState(null);
       const [showBackToTop, setShowBackToTop] = useState(false);
+      const [isIntakeExitPromptOpen, setIsIntakeExitPromptOpen] = useState(false);
 
       useEffect(() => {
         if (!isNavOpen) return undefined;
@@ -1987,6 +2099,7 @@
       const displayedScore = assessment ? assessment.score : liveScore;
       const displayedScoreOutOf = assessment ? assessment.scoreOutOf : 100;
       const displayedProjectSize = assessment ? getProjectSizeLabel(assessment.tshirtSize) : "Sizing in progress";
+      const hasUnsavedIntakeChanges = editingDraftId || Object.values(formValues).some(Boolean) || Object.keys(uploadedDocuments).length > 0;
       const avatarInitials = getInitials(currentUserProfile.name);
 
       const updatePreference = (key, value) => {
@@ -2044,8 +2157,9 @@
       const isRoadmapView = pageKey === "roadmap";
       const isReportsView = pageKey === "reports";
       const isSettingsView = pageKey === "settings";
+      const isHelpView = pageKey === "help";
       const isMyProjectsView = isPortfolioPage && activeNavKey === "my-projects";
-      const pageTitle = isRoadmapView ? "Roadmap" : isReportsView ? "Reports" : isSettingsView ? "Settings" : isMyProjectsView ? "My projects" : "Project portfolio";
+      const pageTitle = isRoadmapView ? "Roadmap" : isReportsView ? "Reports" : isSettingsView ? "Settings" : isHelpView ? "Help" : isMyProjectsView ? "My projects" : "Project portfolio";
       const pageSectionTitle = isMyProjectsView ? "My Projects" : "Portfolio Home";
       const pageSectionCopy = isMyProjectsView
         ? "Projects where you are the manager, sponsor, or draft owner."
@@ -2055,6 +2169,8 @@
         ? `${reportProjects.length} roadmap projects`
         : isReportsView
           ? `${reportProjects.length} reportable projects`
+          : isHelpView
+            ? "4 guidance sections"
           : isSettingsView
             ? `${Object.keys(documentTemplates).length} template controls`
             : `${portfolioVisibleProjects.length} projects`;
@@ -2082,8 +2198,7 @@
         { key: "primarySponsor", label: "Sponsor" },
         { key: "department", label: "Department" },
         { key: "tshirtSize", label: "Size" },
-        { key: "completionPercentage", label: "Completion" },
-        { key: "action", label: "Action" }
+        { key: "completionPercentage", label: "Completion" }
       ];
 
       const onChange = (event) => {
@@ -2103,7 +2218,6 @@
       };
 
       const toggleSort = (key) => {
-        if (key === "action") return;
         setSortConfig((current) => {
           if (current.key === key) {
             return { key, direction: current.direction === "asc" ? "desc" : "asc" };
@@ -2190,8 +2304,37 @@
       };
 
       const closeIntakeModal = () => {
+        if (submissionReview?.type === "success") {
+          setIsIntakeOpen(false);
+          setSubmissionReview(null);
+          setIsIntakeExitPromptOpen(false);
+          return;
+        }
+
+        if (hasUnsavedIntakeChanges) {
+          setIsIntakeExitPromptOpen(true);
+          return;
+        }
+
         setIsIntakeOpen(false);
         setSubmissionReview(null);
+        setIsIntakeExitPromptOpen(false);
+      };
+
+      const discardIntakeAndClose = () => {
+        setIsIntakeExitPromptOpen(false);
+        setIsIntakeOpen(false);
+        resetDraftState();
+        resetIntakeFeedback();
+        setDraftMessage("");
+      };
+
+      const saveDraftAndClose = () => {
+        saveDraft();
+        if (formValues.projectName) {
+          setIsIntakeExitPromptOpen(false);
+          setIsIntakeOpen(false);
+        }
       };
 
       const startNewProject = () => {
@@ -2361,10 +2504,6 @@
                       {item.label}
                     </a>
                   ))}
-                  <button className="nav-link nav-link-button" type="button" onClick={() => { setIsHelpOpen(true); setIsNavOpen(false); }}>
-                    <Icon icon="help" />
-                    Help
-                  </button>
                 </nav>
               </div>
 
@@ -2416,12 +2555,13 @@
                     preferences={{ defaultRoadmapView: roadmapScale, showDraftProjects }}
                     onUpdatePreference={updatePreference}
                   />
+                ) : isHelpView ? (
+                  <HelpView />
                 ) : (
                   <>
                     <section className="stat-grid">
                       <article className="stat-card stat-navy"><div className="stat-chip"></div><p className="stat-label">Total projects</p><p className="stat-value">{filteredProjects.length}</p><div className="stat-subtext">Everything in the visible portfolio</div></article>
                       <article className="stat-card stat-blue"><div className="stat-chip"></div><p className="stat-label">Active</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Active").length}</p><div className="stat-subtext">Currently being worked on</div></article>
-                      <article className="stat-card stat-purple"><div className="stat-chip"></div><p className="stat-label">Submitted</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Submitted").length}</p><div className="stat-subtext">Waiting for a decision</div></article>
                       <article className="stat-card stat-orange"><div className="stat-chip"></div><p className="stat-label">On hold</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "On hold").length}</p><div className="stat-subtext">Paused for now</div></article>
                       <article className="stat-card stat-green"><div className="stat-chip"></div><p className="stat-label">Completed</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Completed").length}</p><div className="stat-subtext">Finished and closed</div></article>
                     </section>
@@ -2435,22 +2575,24 @@
                       <button className="secondary-btn clear-filters-btn" type="button" onClick={clearFilters}>Clear filters</button>
                     </section>
 
-                    <section>
-                      <div className="section-header">
-                        <p className="section-title">{pageSectionTitle}</p>
-                        <p className="section-copy">{pageSectionCopy}</p>
+                    <section className="content-panel">
+                      <div className="section-header portfolio-section-header">
+                        <div>
+                          <p className="section-title">Project list</p>
+                          <p className="section-copy">Select a project to open its summary, update, and health view.</p>
+                        </div>
                       </div>
-                      <div className="portfolio-table-wrap desktop-only">
+                      <div className="portfolio-table-wrap">
                         <table className="portfolio-table">
                           <thead>
                             <tr>
                               {columnDefinitions.map((column) => (
                                 <th key={column.key}>
                                   <div className="table-header-cell">
-                                    <button className="table-header-btn" type="button" onClick={() => toggleSort(column.key)} disabled={column.key === "action"}>
+                                    <button className="table-header-btn" type="button" onClick={() => toggleSort(column.key)}>
                                       <span>{column.label}</span>
-                                      {column.key !== "action" && sortConfig.key === column.key && <span className="sort-state">{sortConfig.direction === "asc" ? "Asc" : "Desc"}</span>}
-                                      {column.key !== "action" && <Icon icon="sort" className="table-sort-svg" />}
+                                      {sortConfig.key === column.key && <span className="sort-state">{sortConfig.direction === "asc" ? "Asc" : "Desc"}</span>}
+                                      <Icon icon="sort" className="table-sort-svg" />
                                     </button>
                                   </div>
                                 </th>
@@ -2467,22 +2609,6 @@
                                 <td>{project.department}</td>
                                 <td><div className="size-cell"><span className="size-badge">{project.tshirtSize}</span><span className="size-caption">{getTshirtSizeHint(project.tshirtSize)}</span></div></td>
                                 <td><div className="progress-wrap"><div className="progress-track"><div className={`progress-bar ${getProgressClass(project.status)}`} style={{ width: `${project.completionPercentage}%` }}></div></div><span className="progress-value">{project.completionPercentage}%</span></div></td>
-                                <td className="row-action-cell">
-                                  {canResumeProject(project) ? (
-                                    <button
-                                      className="secondary-btn table-action-btn"
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        resumeDraftProject(project);
-                                      }}
-                                    >
-                                      Resume form
-                                    </button>
-                                  ) : (
-                                    <span className="table-action-placeholder">View details</span>
-                                  )}
-                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -2530,11 +2656,7 @@
               <div className="form-grid">
                 <label>
                   <FormFieldLabel title="Project Name" required />
-                  <input type="text" name="projectName" value={formValues.projectName} onChange={onChange} required placeholder="Enter the project name" />
-                </label>
-                <label>
-                  <FormFieldLabel title="Project Manager" />
-                  <input type="text" name="projectManager" value={formValues.projectManager} onChange={onChange} placeholder="Add the proposed project manager, if known" />
+                  <input type="text" name="projectName" value={formValues.projectName} onChange={onChange} required placeholder="Use a short, clear name people will recognise later" />
                 </label>
                 <label>
                   <FormFieldLabel title="Primary Sponsor" required />
@@ -2542,39 +2664,39 @@
                 </label>
                 <label>
                   <FormFieldLabel title="Strategic Pillar" required />
-                  <select name="strategicPillar" value={formValues.strategicPillar} onChange={onChange} required><option value="">Select</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+                  <select className={!formValues.strategicPillar ? "is-placeholder" : ""} name="strategicPillar" value={formValues.strategicPillar} onChange={onChange} required><option value="" disabled hidden>Choose the firm priority this work supports most</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Department" required />
-                  <select name="department" value={formValues.department} onChange={onChange} required><option value="">Select</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+                  <select className={!formValues.department ? "is-placeholder" : ""} name="department" value={formValues.department} onChange={onChange} required><option value="" disabled hidden>Choose the main area that owns or benefits from the project</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Estimated Budget" required driver />
-                  <select name="budgetBand" value={formValues.budgetBand} onChange={onChange} required><option value="">Select</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.budgetBand ? "is-placeholder" : ""} name="budgetBand" value={formValues.budgetBand} onChange={onChange} required><option value="" disabled hidden>Pick the closest budget range for the expected spend</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Delivery Timeline" required driver />
-                  <select name="deliveryTimeline" value={formValues.deliveryTimeline} onChange={onChange} required><option value="">Select</option>{intakeOptions.deliveryTimeline.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.deliveryTimeline ? "is-placeholder" : ""} name="deliveryTimeline" value={formValues.deliveryTimeline} onChange={onChange} required><option value="" disabled hidden>Choose how long you think delivery is likely to take</option>{intakeOptions.deliveryTimeline.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Impacted Teams" required driver />
-                  <select name="impactedTeams" value={formValues.impactedTeams} onChange={onChange} required><option value="">Select</option>{intakeOptions.impactedTeams.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.impactedTeams ? "is-placeholder" : ""} name="impactedTeams" value={formValues.impactedTeams} onChange={onChange} required><option value="" disabled hidden>Tell us how many teams will be affected by the change</option>{intakeOptions.impactedTeams.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Client Sensitive Data" required driver />
-                  <select name="clientSensitiveData" value={formValues.clientSensitiveData} onChange={onChange} required><option value="">Select</option><option value="no">No</option><option value="yes">Yes</option></select>
+                  <select className={!formValues.clientSensitiveData ? "is-placeholder" : ""} name="clientSensitiveData" value={formValues.clientSensitiveData} onChange={onChange} required><option value="" disabled hidden>Choose yes if the work will use client or personal data</option><option value="no">No</option><option value="yes">Yes</option></select>
                 </label>
                 <label>
                   <FormFieldLabel title="Audience Type" required driver />
-                  <select name="audienceType" value={formValues.audienceType} onChange={onChange} required><option value="">Select</option>{intakeOptions.audienceType.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.audienceType ? "is-placeholder" : ""} name="audienceType" value={formValues.audienceType} onChange={onChange} required><option value="" disabled hidden>Choose whether the outcome is internal, client-facing, or both</option>{intakeOptions.audienceType.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Strategic Priority" required driver />
-                  <select name="strategicImportance" value={formValues.strategicImportance} onChange={onChange} required><option value="">Select</option>{intakeOptions.strategicImportance.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.strategicImportance ? "is-placeholder" : ""} name="strategicImportance" value={formValues.strategicImportance} onChange={onChange} required><option value="" disabled hidden>Choose how important this project is to the firm right now</option>{intakeOptions.strategicImportance.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
               </div>
 
-              <label className="full-width"><FormFieldLabel title="One-line Justification" required /><textarea name="oneLineJustification" rows="3" value={formValues.oneLineJustification} onChange={onChange} required placeholder="Summarise the business objective and expected outcome."></textarea></label>
+              <label className="full-width"><FormFieldLabel title="One-line Justification" required /><textarea name="oneLineJustification" rows="3" value={formValues.oneLineJustification} onChange={onChange} required placeholder="Summarise the business objective and the outcome you expect"></textarea></label>
 
               {assessment && <section className="intake-score-panel">
                 <div className="intake-score-header">
@@ -2650,28 +2772,29 @@
             )}
           </Modal>
 
-          {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} canEditProject={currentUserProfile.isAdmin} onSaveProjectEdits={saveProjectEdits} onOpenProfile={openProfile} />}
-          {isPortfolioPage && <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />}
-          <Modal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} titleId="helpTitle">
+          <Modal isOpen={isIntakeExitPromptOpen} onClose={() => setIsIntakeExitPromptOpen(false)} titleId="intakeExitPromptTitle">
             <div className="detail-modal">
               <div className="detail-header">
                 <div>
-                  <p className="eyebrow">Help</p>
-                  <h2 id="helpTitle" className="detail-title">How this app works</h2>
+                  <p className="eyebrow">Close project brief</p>
+                  <h3 id="intakeExitPromptTitle">Save before you close?</h3>
                 </div>
-                <button className="icon-btn" type="button" aria-label="Close help" onClick={() => setIsHelpOpen(false)}><Icon icon="close" className="icon-only-svg" /></button>
+                <button className="icon-btn" type="button" aria-label="Close save prompt" onClick={() => setIsIntakeExitPromptOpen(false)}><Icon icon="close" className="icon-only-svg" /></button>
               </div>
-              <div className="detail-card">
-                <ul className="help-list">
-                  <li>This portfolio is the home for MKS projects, so you can browse what is in flight and what is coming next.</li>
-                  <li>Use the new project brief to submit a project, save a draft, and come back later if you are not ready to submit.</li>
-                  <li>The roadmap shows where projects sit in discovery, planning, delivery, and closure across the timeline.</li>
-                  <li>The health radar shows how the project is performing across governance, engagement, scope, budget, schedule, resources, risks, and quality.</li>
-                  <li>Reports gives you quick access to linked health checks and portfolio reporting pages.</li>
-                </ul>
+              <div className="submission-review-panel submission-review-neutral">
+                <p>You have started filling in this project brief.</p>
+                <p>Do you want to save it as a draft before closing?</p>
+              </div>
+              <div className="form-actions">
+                <button className="secondary-btn" type="button" onClick={() => setIsIntakeExitPromptOpen(false)}>Keep editing</button>
+                <button className="secondary-btn" type="button" onClick={discardIntakeAndClose}>Close without saving</button>
+                <button className="primary-btn" type="button" onClick={saveDraftAndClose}>Save draft and close</button>
               </div>
             </div>
           </Modal>
+
+          {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} canEditProject={currentUserProfile.isAdmin} onSaveProjectEdits={saveProjectEdits} onOpenProfile={openProfile} />}
+          {isPortfolioPage && <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />}
           {showBackToTop && <button className="back-to-top-btn" type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Back to top</button>}
         </>
       );
