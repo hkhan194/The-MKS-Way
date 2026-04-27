@@ -392,6 +392,201 @@
       }));
     }
 
+    const lifecyclePhaseDefinitions = [
+      {
+        key: "initiation",
+        label: "Initiation",
+        gatewayLabel: "Gateway 1",
+        readinessChecklist: [
+          "Confirm the business need and expected benefits.",
+          "Confirm sponsor, project lead, and decision owners.",
+          "Confirm scope, options, budget, and timeline.",
+          "Confirm key risks, assumptions, and dependencies."
+        ],
+        nextSteps: [
+          "Approve the move into planning.",
+          "Build the detailed plan and milestones.",
+          "Confirm resources, governance, and delivery approach.",
+          "Prepare planning-stage documents for review."
+        ],
+        documents: [
+          { id: "project-charter", title: "Project Charter", summary: "Project purpose and scope", templateLabel: "Initiation - Project Charter.docx" },
+          { id: "sponsor-brief", title: "Sponsor Brief", summary: "Sponsor goals and approval", templateLabel: "Initiation - Sponsor Brief.docx" },
+          { id: "initial-raid-log", title: "RAID Log", summary: "Early risks and assumptions", templateLabel: "Initiation - Initial RAID Log.xlsx" }
+        ]
+      },
+      {
+        key: "planning",
+        label: "Planning",
+        gatewayLabel: "Gateway 2",
+        readinessChecklist: [
+          "Approve the delivery approach, scope, and milestones.",
+          "Confirm roles, capacity, and governance forums.",
+          "Confirm dependencies, approvals, and sourcing needs.",
+          "Confirm baseline controls for risk, issue, and change."
+        ],
+        nextSteps: [
+          "Mobilise the team and start delivery.",
+          "Baseline schedule, budget, and reporting cadence.",
+          "Begin active risk, issue, and change control.",
+          "Prepare evidence for the delivery-stage review."
+        ],
+        documents: [
+          { id: "delivery-plan", title: "Delivery Plan", summary: "Plan, dates, and milestones", templateLabel: "Planning - Delivery Plan.xlsx" },
+          { id: "resource-plan", title: "Resource Plan", summary: "People and effort needed", templateLabel: "Planning - Resource Plan.xlsx" },
+          { id: "governance-pack", title: "Governance Pack", summary: "Governance approach and decisions", templateLabel: "Planning - Governance Pack.pptx" }
+        ]
+      },
+      {
+        key: "delivery",
+        label: "Delivery",
+        gatewayLabel: "Gateway 3",
+        readinessChecklist: [
+          "Confirm delivery is on track for scope, time, and cost.",
+          "Confirm risks, issues, and changes are controlled.",
+          "Confirm testing, readiness, and stakeholder actions are complete.",
+          "Confirm the gateway pack shows delivery evidence and decisions."
+        ],
+        nextSteps: [
+          "Complete rollout and transition activities.",
+          "Confirm service readiness and operational handover.",
+          "Close remaining risks, actions, and open changes.",
+          "Prepare closure and lessons learned materials."
+        ],
+        documents: [
+          { id: "delivery-status-pack", title: "Status Pack", summary: "Current delivery progress", templateLabel: "Delivery - Status Pack.pptx" },
+          { id: "change-log", title: "Change Log", summary: "Record approved changes", templateLabel: "Delivery - Change Log.xlsx" },
+          { id: "gate-readiness-pack", title: "Gateway Pack", summary: "Evidence for gateway review", templateLabel: "Delivery - Gateway Readiness Pack.docx" }
+        ]
+      },
+      {
+        key: "closure",
+        label: "Closure",
+        gatewayLabel: "Gateway 4 / Closure Gateway",
+        readinessChecklist: [
+          "Confirm deliverables are accepted and handover is complete.",
+          "Confirm benefits owner, support model, and open actions.",
+          "Confirm financial closure, contracts, and final records.",
+          "Confirm closure report and lessons learned are agreed."
+        ],
+        nextSteps: [
+          "Start post-project support and benefits tracking.",
+          "Confirm business ownership after handover.",
+          "Archive final records and approvals.",
+          "Schedule the post-project review and share lessons."
+        ],
+        documents: [
+          { id: "closure-report", title: "Closure Report", summary: "Project outcomes and closure", templateLabel: "Closure - Closure Report.docx" },
+          { id: "handover-pack", title: "Handover Pack", summary: "Operational handover details", templateLabel: "Closure - Handover Pack.docx" },
+          { id: "lessons-learned", title: "Lessons Learned", summary: "What worked and what did not", templateLabel: "Closure - Lessons Learned.docx" }
+        ]
+      }
+    ];
+
+    const lifecycleReviewStatuses = {
+      notSubmitted: "Not submitted",
+      submitted: "Submitted for Gateway Review",
+      approved: "Approved for Gateway Review",
+      notReady: "Not ready for review"
+    };
+
+    function getLifecycleFileExtension(fileName) {
+      const match = fileName.match(/\.[^.]+$/);
+      return match ? match[0] : ".docx";
+    }
+
+    const lifecycleCurrentPhaseOverrides = {
+      practicepoint: "delivery"
+    };
+
+    const lifecycleUploadedPhaseOverrides = {
+      practicepoint: ["initiation", "planning", "delivery"]
+    };
+
+    function buildMockSharePointHref(fileName, projectName, sectionLabel) {
+      const content = [
+        "Mock SharePoint document library item",
+        `File: ${fileName}`,
+        `Project: ${projectName}`,
+        `Section: ${sectionLabel}`,
+        "",
+        "This is a placeholder prototype document used to demonstrate the lifecycle governance flow."
+      ].join("\n");
+
+      return `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`;
+    }
+
+    function getLifecyclePhaseLabel(phaseKey) {
+      return lifecyclePhaseDefinitions.find((phase) => phase.key === phaseKey)?.label || "Lifecycle phase";
+    }
+
+    function getLifecyclePhaseIndex(phaseKey) {
+      return Math.max(0, lifecyclePhaseDefinitions.findIndex((phase) => phase.key === phaseKey));
+    }
+
+    function mapProjectToLifecyclePhase(project) {
+      const overridePhase = lifecycleCurrentPhaseOverrides[normaliseProjectName(project.name)];
+      if (overridePhase) return overridePhase;
+      if (project.status === "Completed" || project.roadmapPhase === "closure") return "closure";
+      if (project.status === "Planning" || project.roadmapPhase === "definition") return "planning";
+      if (project.status === "Active" && project.roadmapPhase === "delivery") return "delivery";
+      if (project.roadmapPhase === "delivery") return "delivery";
+      return "initiation";
+    }
+
+    function getLifecyclePhaseRelation(phaseKey, currentPhaseKey) {
+      const phaseIndex = getLifecyclePhaseIndex(phaseKey);
+      const currentPhaseIndex = getLifecyclePhaseIndex(currentPhaseKey);
+
+      if (phaseIndex < currentPhaseIndex) return "historic";
+      if (phaseIndex === currentPhaseIndex) return "current";
+      if (phaseIndex === currentPhaseIndex + 1) return "next";
+      return "future";
+    }
+
+    function isLifecycleDocumentUploaded(project, phaseKey, relation, docIndex) {
+      const uploadedOverride = lifecycleUploadedPhaseOverrides[normaliseProjectName(project.name)] || [];
+      if (uploadedOverride.includes(phaseKey)) return true;
+      if (relation === "historic") return true;
+      if (relation === "current") return docIndex === 0 && project.status !== "Submitted";
+      return false;
+    }
+
+    function buildLifecycleGovernanceRecord(project) {
+      const currentPhase = mapProjectToLifecyclePhase(project);
+
+      return {
+        currentPhase,
+        phases: lifecyclePhaseDefinitions.map((phase) => {
+          const relation = getLifecyclePhaseRelation(phase.key, currentPhase);
+          return {
+            key: phase.key,
+            label: phase.label,
+            gatewayLabel: phase.gatewayLabel,
+            readinessChecklist: phase.readinessChecklist,
+            nextSteps: phase.nextSteps,
+            documents: phase.documents.map((document, index) => {
+              const uploaded = isLifecycleDocumentUploaded(project, phase.key, relation, index);
+              const uploadedFileName = `${project.name} - ${document.title}${getLifecycleFileExtension(document.templateLabel)}`;
+              return {
+                ...document,
+                uploaded,
+                uploadedAt: uploaded ? (relation === "historic" ? "Passed gateway" : "Uploaded for review") : "",
+                uploadedFileName,
+                templateHref: buildMockSharePointHref(document.templateLabel, project.name, `${phase.label} template`),
+                uploadedHref: uploaded ? buildMockSharePointHref(uploadedFileName, project.name, `${phase.label} uploaded file`) : "",
+                readOnly: relation === "historic"
+              };
+            }),
+            additionalDocuments: [],
+            reviewStatus: lifecycleReviewStatuses.notSubmitted,
+            reviewFeedback: "",
+            auditTrail: []
+          };
+        })
+      };
+    }
+
     function hydrateProject(project) {
       const isKnownSubmittedProject = normaliseProjectName(project.name) === "nuthatch";
       const hasSubmittedDraftValues = project.status === "Draft"
@@ -520,14 +715,15 @@
 
     function getStatusClass(status) {
       if (status === "Draft") return "status-draft";
-      if (status === "Active") return "status-active";
+      if (status === "Submitted" || status === "Initiation") return "status-initiation";
+      if (status === "Active" || status === "Delivery") return "status-active";
       if (status === "Planning") return "status-planning";
-      if (status === "Completed") return "status-completed";
+      if (status === "Completed" || status === "Closure") return "status-completed";
       return "status-onhold";
     }
 
     function getProgressClass(status) {
-      if (status === "Active" || status === "Completed") return "progress-green";
+      if (status === "Active" || status === "Delivery" || status === "Completed" || status === "Closure") return "progress-green";
       if (status === "Planning" || status === "On hold") return "progress-orange";
       return "progress-blue";
     }
@@ -548,6 +744,29 @@
       if (phaseKey === "delivery") return "Delivery";
       if (phaseKey === "closure") return "Closure";
       return "To be confirmed";
+    }
+
+    function getLifecycleDisplayStatus(project) {
+      if (!project) {
+        return { label: "To be confirmed", phaseKey: "" };
+      }
+
+      if (project.status === "Draft") {
+        return { label: "Draft", phaseKey: "draft" };
+      }
+
+      if (project.status === "On hold") {
+        return { label: "On hold", phaseKey: "onhold" };
+      }
+
+      const lifecyclePhase = mapProjectToLifecyclePhase(project);
+
+      if (lifecyclePhase === "initiation") return { label: "Initiation", phaseKey: lifecyclePhase };
+      if (lifecyclePhase === "planning") return { label: "Planning", phaseKey: lifecyclePhase };
+      if (lifecyclePhase === "delivery") return { label: "Delivery", phaseKey: lifecyclePhase };
+      if (lifecyclePhase === "closure") return { label: "Closure", phaseKey: lifecyclePhase };
+
+      return { label: project.status || "To be confirmed", phaseKey: lifecyclePhase };
     }
 
     function projectStatusFromForm(status) {
@@ -579,6 +798,8 @@
         close: "M6 6l12 12M18 6L6 18",
         edit: "M4 20h4l10.5-10.5-4-4L4 16v4M13.5 6.5l4 4M15 5l4 4",
         sort: "M8 7l4-4 4 4M16 17l-4 4-4-4M12 3v18",
+        check: "M5 12l4 4L19 6",
+        clock: "M12 7v5l3 3M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18",
         person: "M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8M5 21a7 7 0 0 1 14 0",
         help: "M12 17h.01M9.1 9a3 3 0 1 1 5.2 2c-.7.8-1.5 1.2-2.3 1.8-.8.6-1.3 1.3-1.3 2.2v.5",
         doc: "M8 3h6l5 5v13H8zM14 3v5h5M10 13h7M10 17h7"
@@ -803,6 +1024,8 @@
         return <Modal isOpen={false} onClose={onClose} titleId="projectDetailTitle" />;
       }
 
+      const projectDisplayStatus = getLifecycleDisplayStatus(project);
+
       const saveContext = () => {
         onSaveProjectEdits(project.id, contextValues);
         setIsContextEditing(false);
@@ -833,7 +1056,7 @@
               <div>
                 <h2 id="projectDetailTitle" className="detail-title">{project.name}</h2>
                 <div className="detail-badges">
-                  <span className={`status-pill ${getStatusClass(project.status)}`}>{project.status}</span>
+                  <span className={`status-pill ${getStatusClass(projectDisplayStatus.label)}`}>{projectDisplayStatus.label}</span>
                   <span className="size-badge">{project.tshirtSize}</span>
                 </div>
               </div>
@@ -1027,6 +1250,408 @@
           )}
         </Modal>
         </>
+      );
+    }
+
+    function LifecycleGovernanceModal({ project, onClose }) {
+      const [lifecycleRecord, setLifecycleRecord] = useState(null);
+      const [activePhase, setActivePhase] = useState("initiation");
+
+      useEffect(() => {
+        if (!project) {
+          setLifecycleRecord(null);
+          setActivePhase("initiation");
+          return;
+        }
+
+        const record = buildLifecycleGovernanceRecord(project);
+        setLifecycleRecord(record);
+        setActivePhase(record.currentPhase);
+      }, [project]);
+
+      if (!project || !lifecycleRecord) {
+        return <Modal isOpen={false} onClose={onClose} titleId="lifecycleGovernanceTitle" />;
+      }
+
+      const projectObjective = project.businessObjective || project.draftFormValues?.oneLineJustification || "No project objective has been captured yet.";
+      const currentPhaseRecord = lifecycleRecord.phases.find((phase) => phase.key === lifecycleRecord.currentPhase) || lifecycleRecord.phases[0];
+      const activePhaseRecord = lifecycleRecord.phases.find((phase) => phase.key === activePhase) || lifecycleRecord.phases[0];
+      const activeRelation = getLifecyclePhaseRelation(activePhaseRecord.key, lifecycleRecord.currentPhase);
+      const activeUploadedCount = activePhaseRecord.documents.filter((document) => document.uploaded).length;
+      const currentPhaseIndex = getLifecyclePhaseIndex(lifecycleRecord.currentPhase);
+      const followingPhaseRecord = lifecycleRecord.phases[getLifecyclePhaseIndex(activePhaseRecord.key) + 1] || null;
+      const requiredDocumentsReady = activePhaseRecord.documents.every((document) => document.uploaded);
+      const canSubmitForGateway = requiredDocumentsReady && activeRelation !== "future";
+      const submitterName = project.createdBy || project.projectManager || "Project submitter";
+      const submitterEmail = project.submitterEmail || project.createdByEmail || "";
+
+      const getReadinessState = (phase) => {
+        const relation = getLifecyclePhaseRelation(phase.key, lifecycleRecord.currentPhase);
+        const uploadedCount = phase.documents.filter((document) => document.uploaded).length;
+        const requiredCount = phase.documents.length;
+
+        if (relation === "historic") {
+          return {
+            label: "Gateway done",
+            tone: "done",
+            copy: "This gateway is finished."
+          };
+        }
+
+        if (relation === "current") {
+          return uploadedCount === requiredCount
+            ? {
+                label: "Ready for review",
+                tone: "ready",
+                copy: "All the needed files are in place."
+              }
+            : {
+                label: `${uploadedCount} of ${requiredCount} files ready`,
+                tone: "working",
+                copy: "Finish the missing files before review."
+              };
+        }
+
+        if (relation === "next") {
+          return {
+            label: "Next stage",
+            tone: "next",
+            copy: "You can start these files early."
+          };
+        }
+
+        return {
+          label: "Later stage",
+          tone: "future",
+          copy: "Nothing to do here yet."
+        };
+      };
+
+      const buildAuditEntry = (action, detail) => ({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        action,
+        detail,
+        createdAt: new Date().toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
+      });
+
+      const updateLifecyclePhase = (phaseKey, updater) => {
+        setLifecycleRecord((current) => ({
+          ...current,
+          phases: current.phases.map((phase) => phase.key === phaseKey ? updater(phase) : phase)
+        }));
+      };
+
+      const mockUploadDocument = (phaseKey, documentId) => {
+        updateLifecyclePhase(phaseKey, (phase) => ({
+          ...phase,
+          documents: phase.documents.map((document) => (
+                document.id !== documentId
+                  ? document
+                  : {
+                      ...document,
+                      uploaded: true,
+                      uploadedAt: "Document uploaded",
+                  uploadedHref: buildMockSharePointHref(document.uploadedFileName, project.name, `${phase.label} uploaded file`)
+                    }
+          )),
+          auditTrail: [
+            buildAuditEntry("Document uploaded", `${phase.label}: ${phase.documents.find((document) => document.id === documentId)?.title || "Required document"}`),
+            ...(phase.auditTrail || [])
+          ]
+        }));
+      };
+
+      const addAdditionalDocument = (phaseKey) => {
+        updateLifecyclePhase(phaseKey, (phase) => {
+          const nextNumber = (phase.additionalDocuments?.length || 0) + 1;
+          const title = `Additional document ${nextNumber}`;
+          const uploadedFileName = `${project.name} - ${phase.label} - ${title}.docx`;
+
+          return {
+            ...phase,
+            additionalDocuments: [
+              ...(phase.additionalDocuments || []),
+              {
+                id: `additional-${Date.now()}`,
+                title,
+                summary: "Supporting evidence",
+                uploadedAt: "Document uploaded",
+                uploadedFileName,
+                uploadedHref: buildMockSharePointHref(uploadedFileName, project.name, `${phase.label} additional document`)
+              }
+            ],
+            auditTrail: [
+              buildAuditEntry("Additional document added", `${phase.label}: ${title}`),
+              ...(phase.auditTrail || [])
+            ]
+          };
+        });
+      };
+
+      const submitForGatewayReview = () => {
+        if (!canSubmitForGateway) return;
+        updateLifecyclePhase(activePhaseRecord.key, (phase) => ({
+          ...phase,
+          reviewStatus: lifecycleReviewStatuses.submitted,
+          auditTrail: [
+            buildAuditEntry("Submitted for Gateway Review", `${submitterName} submitted ${phase.label} for PMO review.`),
+            ...(phase.auditTrail || [])
+          ]
+        }));
+      };
+
+      const setPmoReviewStatus = (status) => {
+        updateLifecyclePhase(activePhaseRecord.key, (phase) => ({
+          ...phase,
+          reviewStatus: status
+        }));
+      };
+
+      const openOutlookDraft = (mode, statusOverride = activePhaseRecord.reviewStatus) => {
+        const uploadedDocuments = [
+          ...activePhaseRecord.documents.filter((document) => document.uploaded),
+          ...(activePhaseRecord.additionalDocuments || [])
+        ];
+        const sharePointFolderLink = `https://mooreks.sharepoint.com/sites/PMO/Shared%20Documents/${encodeURIComponent(project.name)}/${encodeURIComponent(activePhaseRecord.label)}`;
+        const approvedDocumentLines = uploadedDocuments.length
+          ? uploadedDocuments.map((document) => `- ${document.title}: ${document.uploadedHref || sharePointFolderLink}`)
+          : [`- Project document folder: ${sharePointFolderLink}`];
+        const subjectMap = {
+          approved: `${project.name} - ${activePhaseRecord.gatewayLabel} approved for review`,
+          notReady: `${project.name} - ${activePhaseRecord.label} not ready for gateway review`
+        };
+        const bodyMap = {
+          approved: [
+            `Hi ${submitterName},`,
+            "",
+            `PMO has approved ${project.name} for ${activePhaseRecord.gatewayLabel}.`,
+            "",
+            "SharePoint documents:",
+            ...approvedDocumentLines,
+            "",
+            `Project folder: ${sharePointFolderLink}`,
+            "",
+            "Could you please send a few suitable time slots for the gateway review meeting?",
+            "",
+            "Once we have availability, we can send the meeting invite through Outlook or Microsoft Teams. In the future, this can be connected to Microsoft 365/Copilot so the approver calendar is checked and the Teams meeting invite is created from the workflow."
+          ],
+          notReady: [
+            `Hi ${submitterName},`,
+            "",
+            `PMO has reviewed ${project.name} for the ${activePhaseRecord.label} phase and it is not ready for gateway review yet.`,
+            "",
+            "Please update the required documents in SharePoint and resubmit when ready.",
+            "",
+            `Project folder: ${sharePointFolderLink}`,
+            "",
+            "Suggested Teams message:",
+            `${project.name} is not ready for ${activePhaseRecord.gatewayLabel} yet. Please update the SharePoint documents and resubmit for PMO review.`
+          ],
+        };
+        const subject = subjectMap[mode] || subjectMap.approved;
+        const bodyLines = bodyMap[mode] || bodyMap.approved;
+
+        window.open(`mailto:${submitterEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`, "_blank");
+      };
+
+      const handlePmoReviewAction = (status, messageMode) => {
+        setPmoReviewStatus(status);
+        openOutlookDraft(messageMode, status);
+      };
+
+      const activeReadiness = getReadinessState(activePhaseRecord);
+      const currentReadiness = getReadinessState(currentPhaseRecord);
+      const reviewStatusClass = activePhaseRecord.reviewStatus === lifecycleReviewStatuses.approved
+        ? "approved"
+        : activePhaseRecord.reviewStatus === lifecycleReviewStatuses.notReady
+          ? "not-ready"
+          : activePhaseRecord.reviewStatus === lifecycleReviewStatuses.submitted
+            ? "submitted"
+            : "draft";
+
+      return (
+        <Modal isOpen={!!project} onClose={onClose} titleId="lifecycleGovernanceTitle" panelClassName="modal-panel-fullscreen">
+          <div className="detail-modal lifecycle-modal">
+            <div className="detail-header">
+              <div>
+                <p className="eyebrow">Lifecycle governance</p>
+                <h2 id="lifecycleGovernanceTitle" className="detail-title">{project.name} lifecycle</h2>
+                <p className="section-copy lifecycle-objective"><strong>Project objective:</strong> {projectObjective}</p>
+              </div>
+              <button className="icon-btn" type="button" aria-label="Close lifecycle governance" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
+            </div>
+
+            <section className="detail-card lifecycle-current-card">
+              <div>
+                <p className="eyebrow">Current phase</p>
+                <h3>{currentPhaseRecord.label}</h3>
+                <p className="section-copy">{currentReadiness.copy} {currentPhaseRecord.gatewayLabel}. {currentPhaseRecord.documents.filter((document) => document.uploaded).length} of {currentPhaseRecord.documents.length} required documents uploaded.</p>
+              </div>
+              <span className={`lifecycle-readiness-pill lifecycle-readiness-pill-${currentReadiness.tone}`}>{currentReadiness.label}</span>
+            </section>
+
+            <section className="detail-card lifecycle-journey-card">
+              <div className="section-header-row">
+                <div className="section-title-row">
+                  <p className="section-title">Lifecycle flow</p>
+                </div>
+                <span className={`status-pill ${getStatusClass(getLifecyclePhaseLabel(lifecycleRecord.currentPhase))}`}>Current phase: {getLifecyclePhaseLabel(lifecycleRecord.currentPhase)}</span>
+              </div>
+
+              <div className="lifecycle-journey">
+                {lifecyclePhaseDefinitions.map((phase, index) => {
+                  const relation = getLifecyclePhaseRelation(phase.key, lifecycleRecord.currentPhase);
+                  const isCurrent = phase.key === lifecycleRecord.currentPhase;
+                  const isActiveTab = phase.key === activePhase;
+
+                  return (
+                    <React.Fragment key={`journey-${phase.key}`}>
+                      <button
+                        className={`lifecycle-stage lifecycle-stage-${relation} ${isActiveTab ? "lifecycle-stage-active" : ""}`}
+                        type="button"
+                        onClick={() => setActivePhase(phase.key)}
+                      >
+                        <span className="lifecycle-stage-number">{index + 1}</span>
+                        <strong>{phase.label}</strong>
+                        <span>{isCurrent ? "Now" : relation === "historic" ? "Done" : relation === "next" ? "Next" : "Later"}</span>
+                      </button>
+                      {index <= lifecyclePhaseDefinitions.length - 1 && (
+                        <div className={`lifecycle-gateway lifecycle-gateway-${index < currentPhaseIndex ? "passed" : index === currentPhaseIndex ? "current" : "upcoming"}`}>
+                          <span className="lifecycle-gateway-diamond" aria-hidden="true"></span>
+                          <small>{phase.gatewayLabel}</small>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="detail-card">
+              <div className="lifecycle-phase-main">
+                <div className="lifecycle-simple-grid">
+                  <section className="lifecycle-side-card">
+                    <p className="section-title">Gateway readiness</p>
+                    <p className="section-copy">{activeReadiness.copy} {activePhaseRecord.gatewayLabel}. {activeUploadedCount} of {activePhaseRecord.documents.length} documents ready.</p>
+                    <ul className="lifecycle-checklist">
+                      {activePhaseRecord.readinessChecklist.map((item, index) => <li key={`${activePhaseRecord.key}-ready-${index}`}>{item}</li>)}
+                    </ul>
+                  </section>
+
+                  <section className="lifecycle-side-card">
+                    <p className="section-title">What comes next</p>
+                    <p className="section-copy">
+                      {followingPhaseRecord
+                        ? `${followingPhaseRecord.label} comes after this stage.`
+                        : "This is the final stage after handover."}
+                    </p>
+                    <ul className="lifecycle-checklist">
+                      {activePhaseRecord.nextSteps.map((item, index) => <li key={`${activePhaseRecord.key}-next-${index}`}>{item}</li>)}
+                    </ul>
+                    {followingPhaseRecord && (
+                      <button className="secondary-btn lifecycle-next-btn" type="button" onClick={() => setActivePhase(followingPhaseRecord.key)}>
+                        Open {followingPhaseRecord.label}
+                      </button>
+                    )}
+                  </section>
+                </div>
+
+                <section className="lifecycle-document-panel">
+                  <div className="section-header-row">
+                    <div className="section-title-row">
+                      <p className="section-title">Required documents</p>
+                    </div>
+                    <button className="primary-btn lifecycle-submit-btn" type="button" disabled={!canSubmitForGateway} onClick={submitForGatewayReview}>
+                      Submit for Gateway Review
+                    </button>
+                  </div>
+
+                  <div className="lifecycle-submit-note">
+                    {requiredDocumentsReady ? "Required documents are uploaded." : "Upload all required documents to enable submission."}
+                  </div>
+
+                  <div className="lifecycle-document-grid">
+                    {activePhaseRecord.documents.map((document) => {
+                      const canMockUpload = !document.uploaded && (activeRelation === "current" || activeRelation === "next");
+
+                      return (
+                        <article className="lifecycle-document-card" key={`${activePhaseRecord.key}-${document.id}`}>
+                          <div className="lifecycle-document-card-header">
+                            <div>
+                              <p className="section-title">{document.title}</p>
+                              <span className="lifecycle-doc-helper">{document.summary}</span>
+                            </div>
+                            <span className={`lifecycle-upload-badge lifecycle-upload-badge-${document.uploaded ? "uploaded" : "missing"}`}>
+                              {document.uploaded ? document.uploadedAt : "Not uploaded yet"}
+                            </span>
+                          </div>
+
+                          <div className="lifecycle-document-links">
+                            <div>
+                              <span className="lifecycle-doc-label">Download file</span>
+                              <a className="doc-link" href={document.templateHref} download={document.templateLabel}>Download {document.title}</a>
+                            </div>
+                            <div>
+                              <span className="lifecycle-doc-label">Uploaded file</span>
+                              {document.uploaded ? (
+                                <a className="doc-link" href={document.uploadedHref} download={document.uploadedFileName}>{document.title}</a>
+                              ) : (
+                                <span className="lifecycle-doc-helper">No file yet</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="lifecycle-document-actions">
+                            {document.readOnly ? (
+                              <span className="lifecycle-doc-helper">Locked after sign-off</span>
+                            ) : canMockUpload ? (
+                              <button className="secondary-btn lifecycle-upload-btn" type="button" onClick={() => mockUploadDocument(activePhaseRecord.key, document.id)}>Upload document</button>
+                            ) : (
+                              <span className="lifecycle-doc-helper">Download available early</span>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="lifecycle-additional-documents">
+                    <div className="section-header-row">
+                      <div>
+                        <p className="section-title">Additional documents</p>
+                        <p className="section-copy">Add supporting evidence if PMO or the sponsor asks for it.</p>
+                      </div>
+                      <button className="secondary-btn" type="button" onClick={() => addAdditionalDocument(activePhaseRecord.key)}>Additional document</button>
+                    </div>
+                    {(activePhaseRecord.additionalDocuments || []).length ? (
+                      <div className="lifecycle-extra-doc-list">
+                        {activePhaseRecord.additionalDocuments.map((document) => (
+                          <a className="doc-link" href={document.uploadedHref} download={document.uploadedFileName} key={document.id}>{document.title}</a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="lifecycle-doc-helper">No additional documents uploaded yet.</p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="lifecycle-review-panel">
+                  <div className="section-header-row">
+                    <div>
+                      <p className="section-title">PMO review</p>
+                      <p className="section-copy">Review status for the selected phase.</p>
+                    </div>
+                    <span className={`lifecycle-review-status lifecycle-review-status-${reviewStatusClass}`}>{activePhaseRecord.reviewStatus}</span>
+                  </div>
+                  <div className="lifecycle-review-actions">
+                    <button className="secondary-btn" type="button" onClick={() => handlePmoReviewAction(lifecycleReviewStatuses.approved, "approved")}>Approved for Gateway Review</button>
+                    <button className="secondary-btn" type="button" onClick={() => handlePmoReviewAction(lifecycleReviewStatuses.notReady, "notReady")}>Not ready for review</button>
+                  </div>
+                </section>
+              </div>
+            </section>
+          </div>
+        </Modal>
       );
     }
 
@@ -1630,7 +2255,211 @@
       };
     }
 
-    function ReportsView({ projects }) {
+    function getReportingPeriodLabel() {
+      return new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    }
+
+    function formatMonthYear(month, year) {
+      if (!month) return "Date to be confirmed";
+      return new Date(year || new Date().getFullYear(), Math.max(0, month - 1), 1)
+        .toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    }
+
+    function getRoadmapCheckpointLabel(phaseKey) {
+      if (phaseKey === "submitted") return "Decision board review";
+      if (phaseKey === "discovery") return "Discovery checkpoint";
+      if (phaseKey === "definition") return "Planning baseline";
+      if (phaseKey === "delivery") return "Delivery milestone";
+      if (phaseKey === "closure") return "Closure handover";
+      return "Next checkpoint";
+    }
+
+    function scoreToRag(score) {
+      if (score >= 4) return "Green";
+      if (score >= 3) return "Amber";
+      return "Red";
+    }
+
+    function textToBulletPoints(text, fallback, maxItems = 3) {
+      const normalised = `${text || ""}`.replace(/\s+/g, " ").trim();
+      if (!normalised) return [fallback];
+
+      let parts = normalised
+        .split(/(?:\.\s+|\n+)/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      if (parts.length === 1) {
+        parts = normalised
+          .split(/,\s+/)
+          .map((part) => part.trim())
+          .filter(Boolean);
+      }
+
+      const cleaned = parts
+        .map((part) => part.replace(/\.$/, "").trim())
+        .filter(Boolean);
+
+      return (cleaned.length ? cleaned : [fallback]).slice(0, maxItems);
+    }
+
+    function isDecisionRequired(project) {
+      if (!project.steeringDecisionNeeded) return false;
+      if (/^no steering decision/i.test(project.steeringDecisionNeeded)) return false;
+      return project.status !== "Completed";
+    }
+
+    function getStakeholderOverallRagReason(project) {
+      if (project.overallRag === "Red") {
+        if (project.governanceRag.time === "Red") return "Schedule confidence is low and senior support is needed to protect delivery.";
+        if (project.governanceRag.budget === "Red") return "Delivery risk is high and cost or control needs active leadership attention.";
+        return "Scope is not settled enough yet and the delivery baseline needs tighter control.";
+      }
+
+      if (project.overallRag === "Amber") {
+        if (project.status === "Submitted") return "The project is waiting for approval before delivery can start.";
+        if (project.governanceRag.scope === "Amber") return "Scope is still being shaped, so the project needs close monitoring.";
+        return "Delivery is moving, but one or two areas still need active oversight.";
+      }
+
+      return "Delivery is on track and only routine monitoring is needed right now.";
+    }
+
+    function buildGovernanceProject(project) {
+      const governanceRag = buildGovernanceSignals(project);
+      const overallRag = governanceRag.time === "Red" || governanceRag.budget === "Red" || governanceRag.scope === "Red"
+        ? "Red"
+        : governanceRag.time === "Amber" || governanceRag.budget === "Amber" || governanceRag.scope === "Amber"
+          ? "Amber"
+          : "Green";
+      const governanceSummary = getGovernanceSummary(project);
+      const actionOwner = governanceSummary.upcomingRisk?.owner && governanceSummary.upcomingRisk.owner !== "To be confirmed"
+        ? governanceSummary.upcomingRisk.owner
+        : project.projectManager && project.projectManager !== "To be confirmed"
+          ? project.projectManager
+          : project.primarySponsor || "To be confirmed";
+      const actionDeadline = governanceSummary.upcomingRisk?.deadline
+        || (project.status === "Submitted"
+          ? "Next decision board"
+          : project.status === "Planning"
+            ? "Next planning review"
+            : "Next monthly review");
+      const actionRequired = governanceSummary.upcomingRisk?.title
+        || project.steeringDecisionNeeded
+        || project.next30DaysPipeline
+        || "Confirm the next agreed action and owner.";
+      const whatsGoingWrong = governanceSummary.existingIssue
+        || governanceSummary.upcomingRisk?.cause
+        || project.currentPosition
+        || "No live issue is currently being reported.";
+      const whyItMatters = project.status === "Submitted"
+        ? "A decision is needed before discovery or planning can begin."
+        : overallRag === "Red"
+          ? "This could delay delivery or increase cost if it is not resolved quickly."
+          : overallRag === "Amber"
+            ? "This needs close monitoring so it does not turn into a live delivery issue."
+            : "This is currently manageable, but the next action still needs to stay on track.";
+      const urgencyScore = (overallRag === "Red" ? 300 : overallRag === "Amber" ? 200 : 100)
+        + (project.status === "Submitted" ? 40 : 0)
+        + (project.status === "On hold" ? 50 : 0)
+        + (project.currentRisk === "High" ? 35 : project.currentRisk === "Medium" ? 15 : 0)
+        + Math.max(0, 100 - project.completionPercentage);
+
+      return {
+        ...project,
+        decisionRequired: isDecisionRequired(project),
+        currentMilestone: getRoadmapCheckpointLabel(project.roadmapPhase),
+        nextMilestone: `${getRoadmapCheckpointLabel(project.roadmapPhase)} - ${formatMonthYear(project.timelineEndMonth, project.timelineYear)}`,
+        governanceRag,
+        governanceSummary,
+        overallRag,
+        actionOwner,
+        actionDeadline,
+        actionRequired,
+        whatsGoingWrong,
+        whyItMatters,
+        urgencyScore
+      };
+    }
+
+    function buildStakeholderReport(project) {
+      const reportOwner = project.projectManager && project.projectManager !== "To be confirmed"
+        ? project.projectManager
+        : project.primarySponsor || "To be confirmed";
+      const resourceRag = project.projectManager === "To be confirmed"
+        ? "Red"
+        : scoreToRag(project.projectHealthChartData?.resourcing || 3);
+      const currentState = [
+        ...textToBulletPoints(project.currentPosition, "Current position is still being confirmed.", 2),
+        project.overallRag === "Green"
+          ? "No material blocker is currently being escalated."
+          : `Current watchpoint: ${project.whatsGoingWrong}`
+      ].slice(0, 3);
+      const riskItems = project.overallRag === "Green"
+        ? [
+            `No material delivery issue is being escalated at the moment. Owner: ${reportOwner}.`,
+            `Next routine checkpoint: ${project.actionDeadline}.`
+          ]
+        : [
+            `${project.whatsGoingWrong} Owner: ${project.actionOwner}.`,
+            `Why it matters: ${project.whyItMatters}`,
+            `Next follow-up: ${project.actionDeadline}.`
+          ];
+      const decisionImpact = project.decisionRequired
+        ? project.whyItMatters
+        : "No immediate leadership decision is being escalated for this reporting period.";
+
+      return {
+        reportOwner,
+        overallRagReason: getStakeholderOverallRagReason(project),
+        previousAchievements: textToBulletPoints(project.whatHappenedLastMonth, "No update was recorded for the previous period."),
+        currentState,
+        plannedWork: [
+          ...textToBulletPoints(project.next30DaysPipeline, "The next-period plan is still being confirmed.", 2),
+          project.nextMilestone
+        ].slice(0, 3),
+        riskItems,
+        scopeResourceSchedule: [
+          {
+            label: "Scope",
+            rag: project.governanceRag.scope,
+            reason: project.governanceRag.scope === "Green"
+              ? "Scope is stable for the current phase."
+              : project.roadmapPhase === "discovery" || project.roadmapPhase === "definition"
+                ? "Scope is still being shaped as the work moves through the current phase."
+                : "Scope needs tighter control to protect delivery."
+          },
+          {
+            label: "Resource",
+            rag: resourceRag,
+            reason: resourceRag === "Green"
+              ? "Core delivery capacity is in place."
+              : project.projectManager === "To be confirmed"
+                ? "A named project manager still needs to be confirmed."
+                : "Capacity needs watching through the next reporting period."
+          },
+          {
+            label: "Schedule",
+            rag: project.governanceRag.time,
+            reason: project.governanceRag.time === "Green"
+              ? "Timeline remains achievable against the current plan."
+              : project.status === "Submitted"
+                ? "Delivery has not started because approval is still needed."
+                : project.status === "On hold"
+                  ? "The schedule is paused until the current issue is resolved."
+                  : "The next milestone needs close monitoring to stay on track."
+          }
+        ],
+        decisionPanel: {
+          decisionNeeded: project.decisionRequired ? "Yes" : "No",
+          byWhen: project.decisionRequired ? project.actionDeadline : "No action due",
+          summary: project.decisionRequired ? project.actionRequired : "No escalation requested",
+          impact: decisionImpact
+        }
+      };
+    }
+
+    function GovernanceReportView({ projects }) {
       const reportProjects = projects.filter((project) => project.status !== "Draft");
       const [searchTerm, setSearchTerm] = useState("");
       const [departmentFilter, setDepartmentFilter] = useState("All departments");
@@ -1642,59 +2471,7 @@
       const sponsors = [...new Set(reportProjects.map((project) => project.primarySponsor).filter(Boolean))];
       const projectManagers = [...new Set(reportProjects.map((project) => project.projectManager).filter(Boolean))];
 
-      const governanceProjects = reportProjects.map((project) => {
-        const governanceRag = buildGovernanceSignals(project);
-        const overallRag = governanceRag.time === "Red" || governanceRag.budget === "Red" || governanceRag.scope === "Red"
-          ? "Red"
-          : governanceRag.time === "Amber" || governanceRag.budget === "Amber" || governanceRag.scope === "Amber"
-            ? "Amber"
-            : "Green";
-        const governanceSummary = getGovernanceSummary(project);
-        const actionOwner = governanceSummary.upcomingRisk?.owner && governanceSummary.upcomingRisk.owner !== "To be confirmed"
-          ? governanceSummary.upcomingRisk.owner
-          : project.projectManager && project.projectManager !== "To be confirmed"
-            ? project.projectManager
-            : project.primarySponsor || "To be confirmed";
-        const actionDeadline = governanceSummary.upcomingRisk?.deadline
-          || (project.status === "Submitted"
-            ? "Next decision board"
-            : project.status === "Planning"
-              ? "Next planning review"
-              : "Next monthly review");
-        const actionRequired = governanceSummary.upcomingRisk?.title
-          || project.steeringDecisionNeeded
-          || project.next30DaysPipeline
-          || "Confirm the next agreed action and owner.";
-        const whatsGoingWrong = governanceSummary.existingIssue
-          || governanceSummary.upcomingRisk?.cause
-          || project.currentPosition
-          || "No live issue is currently being reported.";
-        const whyItMatters = project.status === "Submitted"
-          ? "A decision is needed before discovery or planning can begin."
-          : overallRag === "Red"
-            ? "This could delay delivery or increase cost if it is not resolved quickly."
-            : overallRag === "Amber"
-              ? "This needs close monitoring so it does not turn into a live delivery issue."
-              : "This is currently manageable, but the next action still needs to stay on track.";
-        const urgencyScore = (overallRag === "Red" ? 300 : overallRag === "Amber" ? 200 : 100)
-          + (project.status === "Submitted" ? 40 : 0)
-          + (project.status === "On hold" ? 50 : 0)
-          + (project.currentRisk === "High" ? 35 : project.currentRisk === "Medium" ? 15 : 0)
-          + Math.max(0, 100 - project.completionPercentage);
-
-        return {
-          ...project,
-          governanceRag,
-          governanceSummary,
-          overallRag,
-          actionOwner,
-          actionDeadline,
-          actionRequired,
-          whatsGoingWrong,
-          whyItMatters,
-          urgencyScore
-        };
-      });
+      const governanceProjects = reportProjects.map(buildGovernanceProject);
 
       const filteredProjects = governanceProjects.filter((project) => {
         const haystack = [project.name, project.department, project.primarySponsor, project.projectManager].join(" ").toLowerCase();
@@ -1879,6 +2656,291 @@
       );
     }
 
+    function ReportsView({ projects }) {
+      const initialReportTab = queryParams.get("report") === "stakeholder"
+        ? "stakeholder"
+        : window.MKS_REPORT_TAB === "stakeholder"
+          ? "stakeholder"
+          : "governance";
+      const [activeReportTab, setActiveReportTab] = useState(initialReportTab);
+
+      return (
+        <>
+          <section className="content-panel report-tab-panel">
+            <div className="report-tab-copy">
+              <h2 className="governance-title">Reports</h2>
+              <p className="section-copy">Choose the view you need: governance for PMO oversight, or stakeholder for sponsors and senior leadership.</p>
+            </div>
+            <div className="report-tab-group" role="tablist" aria-label="Report views">
+              <button className={`secondary-btn report-tab-btn ${activeReportTab === "governance" ? "report-tab-btn-active" : ""}`} type="button" role="tab" aria-selected={activeReportTab === "governance"} onClick={() => setActiveReportTab("governance")}>Governance</button>
+              <button className={`secondary-btn report-tab-btn ${activeReportTab === "stakeholder" ? "report-tab-btn-active" : ""}`} type="button" role="tab" aria-selected={activeReportTab === "stakeholder"} onClick={() => setActiveReportTab("stakeholder")}>Stakeholder</button>
+            </div>
+          </section>
+
+          {activeReportTab === "governance" ? (
+            <GovernanceReportView projects={projects} />
+          ) : (
+            <StakeholderReportView projects={projects} />
+          )}
+        </>
+      );
+    }
+
+    function StakeholderProjectDetail({ project, report, reportingPeriod }) {
+      return (
+        <article className="stakeholder-project-report">
+          <header className="stakeholder-project-header">
+            <div>
+              <p className="stakeholder-project-kicker">Project report</p>
+              <h3>{project.name}</h3>
+              <p className="stakeholder-project-rag-line">
+                <strong>Overall RAG:</strong>
+                <span className={`governance-rag-chip ${getGovernanceRagClass(project.overallRag)}`}>{project.overallRag}</span>
+                <span>{report.overallRagReason}</span>
+              </p>
+            </div>
+            <div className="stakeholder-project-meta">
+              <div>
+                <span>Reporting period</span>
+                <strong>{reportingPeriod}</strong>
+              </div>
+              <div>
+                <span>Current milestone</span>
+                <strong>{project.currentMilestone}</strong>
+              </div>
+            </div>
+          </header>
+
+          <div className="stakeholder-report-grid stakeholder-report-grid-top">
+            <section className="stakeholder-report-card">
+              <h4>Previous period achievements</h4>
+              <ul className="stakeholder-list">
+                {report.previousAchievements.map((item, index) => <li key={`achievement-${index}`}>{item}</li>)}
+              </ul>
+            </section>
+
+            <section className="stakeholder-report-card">
+              <h4>Where we are now</h4>
+              <ul className="stakeholder-list">
+                {report.currentState.map((item, index) => <li key={`current-${index}`}>{item}</li>)}
+              </ul>
+            </section>
+
+            <section className="stakeholder-report-card">
+              <h4>Planned work for next period</h4>
+              <ul className="stakeholder-list">
+                {report.plannedWork.map((item, index) => <li key={`planned-${index}`}>{item}</li>)}
+              </ul>
+            </section>
+          </div>
+
+          <div className="stakeholder-report-grid stakeholder-report-grid-bottom">
+            <section className="stakeholder-report-card stakeholder-report-card-risk">
+              <h4>Risks and issues</h4>
+              <ul className="stakeholder-list">
+                {report.riskItems.map((item, index) => <li key={`risk-${index}`}>{item}</li>)}
+              </ul>
+            </section>
+
+            <section className="stakeholder-report-card stakeholder-report-card-rag">
+              <h4>Scope / Resource / Schedule</h4>
+              <div className="stakeholder-rag-list">
+                {report.scopeResourceSchedule.map((item) => (
+                  <div className="stakeholder-rag-item" key={item.label}>
+                    <strong>{item.label}: <span className={`stakeholder-rag-inline stakeholder-rag-inline-${item.rag.toLowerCase()}`}>{item.rag}</span></strong>
+                    <p>{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="stakeholder-report-card stakeholder-report-card-decision">
+              <h4>Decision needed / CIO steer</h4>
+              <dl className="stakeholder-decision-list">
+                <div>
+                  <dt>Decision</dt>
+                  <dd>{report.decisionPanel.decisionNeeded}</dd>
+                </div>
+                <div>
+                  <dt>By when</dt>
+                  <dd>{report.decisionPanel.byWhen}</dd>
+                </div>
+                <div className="stakeholder-decision-full">
+                  <dt>Decision needed</dt>
+                  <dd>{report.decisionPanel.summary}</dd>
+                </div>
+                <div className="stakeholder-decision-full">
+                  <dt>Impact if no decision</dt>
+                  <dd>{report.decisionPanel.impact}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+
+          <footer className="stakeholder-project-footer">
+            <span><strong>Strategic alignment / business relevance:</strong> {project.businessObjective}</span>
+            <span><strong>Owner:</strong> {report.reportOwner}</span>
+          </footer>
+        </article>
+      );
+    }
+
+    function StakeholderReportView({ projects }) {
+      const reportProjects = useMemo(() => projects
+        .filter((project) => project.status !== "Draft")
+        .map(buildGovernanceProject), [projects]);
+      const [searchTerm, setSearchTerm] = useState("");
+      const [sponsorFilter, setSponsorFilter] = useState("All sponsors");
+      const [projectManagerFilter, setProjectManagerFilter] = useState("All managers");
+      const [ragFilter, setRagFilter] = useState("All RAG statuses");
+      const [expandedProjectId, setExpandedProjectId] = useState("");
+
+      const sponsors = [...new Set(reportProjects.map((project) => project.primarySponsor).filter(Boolean))];
+      const projectManagers = [...new Set(reportProjects.map((project) => project.projectManager).filter(Boolean))];
+
+      const filteredProjects = useMemo(() => reportProjects.filter((project) => {
+        const haystack = [project.name, project.primarySponsor, project.projectManager, project.department].join(" ").toLowerCase();
+        const matchesSearch = !searchTerm || haystack.includes(searchTerm.toLowerCase());
+        const matchesSponsor = sponsorFilter === "All sponsors" || project.primarySponsor === sponsorFilter;
+        const matchesProjectManager = projectManagerFilter === "All managers" || project.projectManager === projectManagerFilter;
+        const matchesRag = ragFilter === "All RAG statuses" || project.overallRag === ragFilter;
+        return matchesSearch && matchesSponsor && matchesProjectManager && matchesRag;
+      }), [projectManagerFilter, ragFilter, reportProjects, searchTerm, sponsorFilter]);
+
+      useEffect(() => {
+        if (!filteredProjects.length) {
+          if (expandedProjectId) setExpandedProjectId("");
+          return;
+        }
+
+        if (expandedProjectId && !filteredProjects.some((project) => String(project.id) === String(expandedProjectId))) {
+          setExpandedProjectId("");
+        }
+      }, [expandedProjectId, filteredProjects]);
+      const summaryCounts = {
+        total: filteredProjects.length,
+        green: filteredProjects.filter((project) => project.overallRag === "Green").length,
+        amber: filteredProjects.filter((project) => project.overallRag === "Amber").length,
+        red: filteredProjects.filter((project) => project.overallRag === "Red").length,
+        decisions: filteredProjects.filter((project) => project.decisionRequired).length
+      };
+      const reportingPeriod = getReportingPeriodLabel();
+
+      const clearStakeholderFilters = () => {
+        setSearchTerm("");
+        setSponsorFilter("All sponsors");
+        setProjectManagerFilter("All managers");
+        setRagFilter("All RAG statuses");
+      };
+
+      return (
+        <>
+          <section className="content-panel stakeholder-hero">
+            <div className="stakeholder-hero-copy">
+              <p className="eyebrow">Stakeholder report</p>
+              <h2 className="governance-title stakeholder-title">PMO Portfolio Summary</h2>
+              <p className="section-copy">A clean summary for sponsors and senior leadership. Start with the portfolio table, then open any project for its simple stakeholder update.</p>
+            </div>
+            <div className="stakeholder-summary-grid">
+              <article className="stakeholder-summary-card stakeholder-summary-total"><span>Total projects</span><strong>{summaryCounts.total}</strong></article>
+              <article className="stakeholder-summary-card stakeholder-summary-green"><span>Green</span><strong>{summaryCounts.green}</strong></article>
+              <article className="stakeholder-summary-card stakeholder-summary-amber"><span>Amber</span><strong>{summaryCounts.amber}</strong></article>
+              <article className="stakeholder-summary-card stakeholder-summary-red"><span>Red</span><strong>{summaryCounts.red}</strong></article>
+              <article className="stakeholder-summary-card stakeholder-summary-decision"><span>Decision needed</span><strong>{summaryCounts.decisions}</strong></article>
+            </div>
+          </section>
+
+          <section className="content-panel governance-filter-panel">
+            <div className="stakeholder-filter-grid">
+              <div className="search-wrap governance-search">
+                <input className="search-input" type="search" placeholder="Search by project, sponsor, or manager" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+              </div>
+              <select className="roadmap-filter-select" value={sponsorFilter} onChange={(event) => setSponsorFilter(event.target.value)}>
+                <option>All sponsors</option>
+                {sponsors.map((item) => <option key={item}>{item}</option>)}
+              </select>
+              <select className="roadmap-filter-select" value={projectManagerFilter} onChange={(event) => setProjectManagerFilter(event.target.value)}>
+                <option>All managers</option>
+                {projectManagers.map((item) => <option key={item}>{item}</option>)}
+              </select>
+              <select className="roadmap-filter-select" value={ragFilter} onChange={(event) => setRagFilter(event.target.value)}>
+                <option>All RAG statuses</option>
+                <option>Green</option>
+                <option>Amber</option>
+                <option>Red</option>
+              </select>
+              <button className="secondary-btn clear-filters-btn" type="button" onClick={clearStakeholderFilters}>Clear filters</button>
+            </div>
+          </section>
+
+          {!reportProjects.length ? (
+            <EmptyState title="There are no reportable projects yet." action="Submit a project or move a draft into the live portfolio to start seeing stakeholder reporting here." />
+          ) : !filteredProjects.length ? (
+            <EmptyState title="No projects match the current stakeholder filters." action="Clear one or two filters or search for a broader name to bring the portfolio summary back." />
+          ) : (
+            <>
+              <section className="governance-section">
+                <div className="governance-section-header">
+                  <h3>PMO portfolio summary</h3>
+                  <span>Reporting period: {reportingPeriod}</span>
+                </div>
+
+                <div className="content-panel stakeholder-summary-panel">
+                  <table className="stakeholder-summary-table">
+                    <thead>
+                      <tr>
+                        <th>Project title</th>
+                        <th>Sponsor</th>
+                        <th>Project manager</th>
+                        <th>Overall RAG</th>
+                        <th>Decision needed</th>
+                        <th>Current milestone</th>
+                        <th>Expand</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProjects.map((project) => {
+                        const isExpanded = String(project.id) === String(expandedProjectId);
+                        const stakeholderReport = isExpanded ? buildStakeholderReport(project) : null;
+
+                        return (
+                          <React.Fragment key={`stakeholder-summary-${project.id}`}>
+                            <tr className={isExpanded ? "stakeholder-summary-row-active" : ""}>
+                              <td className="stakeholder-summary-project">
+                                <strong>{project.name}</strong>
+                                <span>{project.department}</span>
+                              </td>
+                              <td>{project.primarySponsor}</td>
+                              <td>{project.projectManager}</td>
+                              <td><span className={`governance-rag-chip ${getGovernanceRagClass(project.overallRag)}`}>{project.overallRag}</span></td>
+                              <td>{project.decisionRequired ? "Yes" : "No"}</td>
+                              <td>{project.currentMilestone}</td>
+                              <td>
+                                <button className="secondary-btn stakeholder-expand-btn" type="button" onClick={() => setExpandedProjectId(isExpanded ? "" : String(project.id))}>
+                                  {isExpanded ? "Collapse" : "Expand"}
+                                </button>
+                              </td>
+                            </tr>
+                            {isExpanded && stakeholderReport && (
+                              <tr className="stakeholder-detail-row">
+                                <td className="stakeholder-detail-cell" colSpan="7">
+                                  <StakeholderProjectDetail project={project} report={stakeholderReport} reportingPeriod={reportingPeriod} />
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
+        </>
+      );
+    }
+
     function HelpView() {
       return (
         <>
@@ -1918,9 +2980,9 @@
               <article className="help-page-card" id="reports-help">
                 <h3>Reports</h3>
                 <ul className="help-list">
-                  <li>Start with Immediate action needed to see the three projects that need the quickest attention.</li>
-                  <li>Use the Portfolio overview table to check status, time, budget, scope, owner, deadline, and why the action matters.</li>
-                  <li>Use Clear filters if the report becomes too narrow and you want to return to the full view.</li>
+                  <li>Use the Governance tab when you want a PMO view of delivery health, actions, deadlines, and escalation points.</li>
+                  <li>Use the Stakeholder tab when sponsors or senior leadership need a simpler PMO portfolio summary and an expandable one-page project update.</li>
+                  <li>Use Clear filters if either tab becomes too narrow and you want to return to the full view.</li>
                 </ul>
               </article>
             </div>
@@ -2017,6 +3079,7 @@
       const [profiles, setProfiles] = useState(getStoredProfiles);
       const [isIntakeOpen, setIsIntakeOpen] = useState(false);
       const [selectedProject, setSelectedProject] = useState(null);
+      const [selectedLifecycleProject, setSelectedLifecycleProject] = useState(null);
       const [selectedPersonName, setSelectedPersonName] = useState("");
       const [isNavOpen, setIsNavOpen] = useState(false);
       const [activeNavKey] = useState(pageKey === "portfolio" ? initialPortfolioView : pageKey);
@@ -2061,6 +3124,15 @@
           setSelectedProject(refreshedProject);
         }
       }, [projects, selectedProject]);
+
+      useEffect(() => {
+        if (!selectedLifecycleProject) return;
+        const refreshedProject = projects.find((project) => project.id === selectedLifecycleProject.id)
+          || projects.find((project) => normaliseProjectName(project.name) === normaliseProjectName(selectedLifecycleProject.name));
+        if (refreshedProject && refreshedProject !== selectedLifecycleProject) {
+          setSelectedLifecycleProject(refreshedProject);
+        }
+      }, [projects, selectedLifecycleProject]);
 
       useEffect(() => {
         window.localStorage.setItem(profilesStorageKey, JSON.stringify(profiles));
@@ -2122,7 +3194,7 @@
       const filteredProjects = useMemo(() => accessibleProjects.filter((project) => {
         const haystack = [project.name, project.department, project.projectManager, project.primarySponsor, project.strategicPillar].join(" ").toLowerCase();
         const matchesSearch = !search || haystack.includes(search.toLowerCase());
-        const matchesStatus = statusFilter === "All statuses" || project.status === statusFilter;
+        const matchesStatus = statusFilter === "All statuses" || getLifecycleDisplayStatus(project).label === statusFilter;
         const matchesDepartment = departmentFilter === "All departments" || project.department === departmentFilter;
         const matchesPm = pmFilter === "All PMs" || project.projectManager === pmFilter;
         const matchesSponsor = sponsorFilter === "All sponsors" || project.primarySponsor === sponsorFilter;
@@ -2135,6 +3207,7 @@
       const sortedProjects = useMemo(() => {
         const getSortValue = (project, key) => {
           if (key === "completionPercentage") return project.completionPercentage;
+          if (key === "status") return getLifecycleDisplayStatus(project).label.toLowerCase();
           if (key === "tshirtSize") return project.tshirtSize;
           return `${project[key] || ""}`.toLowerCase();
         };
@@ -2152,6 +3225,7 @@
       const departments = [...new Set(accessibleProjects.map((project) => project.department))];
       const managers = [...new Set(accessibleProjects.map((project) => project.projectManager))];
       const sponsors = [...new Set(accessibleProjects.map((project) => project.primarySponsor))];
+      const portfolioStatuses = [...new Set(accessibleProjects.map((project) => getLifecycleDisplayStatus(project).label))];
       const reportProjects = accessibleProjects.filter((project) => project.status !== "Draft");
       const isPortfolioPage = pageKey === "portfolio";
       const isRoadmapView = pageKey === "roadmap";
@@ -2159,7 +3233,17 @@
       const isSettingsView = pageKey === "settings";
       const isHelpView = pageKey === "help";
       const isMyProjectsView = isPortfolioPage && activeNavKey === "my-projects";
-      const pageTitle = isRoadmapView ? "Roadmap" : isReportsView ? "Reports" : isSettingsView ? "Settings" : isHelpView ? "Help" : isMyProjectsView ? "My projects" : "Project portfolio";
+      const pageTitle = isRoadmapView
+        ? "Roadmap"
+        : isReportsView
+          ? "Reports"
+          : isSettingsView
+            ? "Settings"
+            : isHelpView
+              ? "Help"
+              : isMyProjectsView
+                ? "My projects"
+                : "Project portfolio";
       const pageSectionTitle = isMyProjectsView ? "My Projects" : "Portfolio Home";
       const pageSectionCopy = isMyProjectsView
         ? "Projects where you are the manager, sponsor, or draft owner."
@@ -2467,6 +3551,7 @@
       };
 
       const openProject = (project) => setSelectedProject(project);
+      const openLifecycleProject = (project) => setSelectedLifecycleProject(project);
 
       const onProjectRowKeyDown = (event, project) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -2544,9 +3629,9 @@
                 <button className="primary-btn" type="button" onClick={startNewProject}>+ New project</button>
               </header>
 
-              <div className="content-area">
-                {isRoadmapView ? (
-                  <RoadmapView projects={accessibleProjects} scale={roadmapScale} onScaleChange={setRoadmapScale} />
+                <div className="content-area">
+                  {isRoadmapView ? (
+                    <RoadmapView projects={accessibleProjects} scale={roadmapScale} onScaleChange={setRoadmapScale} />
                 ) : isReportsView ? (
                   <ReportsView projects={accessibleProjects} />
                 ) : isSettingsView ? (
@@ -2561,14 +3646,14 @@
                   <>
                     <section className="stat-grid">
                       <article className="stat-card stat-navy"><div className="stat-chip"></div><p className="stat-label">Total projects</p><p className="stat-value">{filteredProjects.length}</p><div className="stat-subtext">Everything in the visible portfolio</div></article>
-                      <article className="stat-card stat-blue"><div className="stat-chip"></div><p className="stat-label">Active</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Active").length}</p><div className="stat-subtext">Currently being worked on</div></article>
+                      <article className="stat-card stat-blue"><div className="stat-chip"></div><p className="stat-label">In lifecycle</p><p className="stat-value">{filteredProjects.filter((p) => ["Initiation", "Planning", "Delivery"].includes(getLifecycleDisplayStatus(p).label)).length}</p><div className="stat-subtext">Currently moving through the lifecycle</div></article>
                       <article className="stat-card stat-orange"><div className="stat-chip"></div><p className="stat-label">On hold</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "On hold").length}</p><div className="stat-subtext">Paused for now</div></article>
-                      <article className="stat-card stat-green"><div className="stat-chip"></div><p className="stat-label">Completed</p><p className="stat-value">{filteredProjects.filter((p) => p.status === "Completed").length}</p><div className="stat-subtext">Finished and closed</div></article>
+                      <article className="stat-card stat-green"><div className="stat-chip"></div><p className="stat-label">Closure</p><p className="stat-value">{filteredProjects.filter((p) => getLifecycleDisplayStatus(p).label === "Closure").length}</p><div className="stat-subtext">Finished and signed off</div></article>
                     </section>
 
                     <section className="toolbar">
                       <div className="search-wrap"><input className="search-input" type="search" placeholder="Search projects..." value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-                      <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{intakeOptions.statuses.map((status) => <option key={status}>{status}</option>)}</select>
+                      <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{portfolioStatuses.map((status) => <option key={status}>{status}</option>)}</select>
                       <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}><option>All departments</option>{departments.map((department) => <option key={department}>{department}</option>)}</select>
                       <select value={pmFilter} onChange={(event) => setPmFilter(event.target.value)}><option>All PMs</option>{managers.map((manager) => <option key={manager}>{manager}</option>)}</select>
                       <select value={sponsorFilter} onChange={(event) => setSponsorFilter(event.target.value)}><option>All sponsors</option>{sponsors.map((sponsor) => <option key={sponsor}>{sponsor}</option>)}</select>
@@ -2579,7 +3664,7 @@
                       <div className="section-header portfolio-section-header">
                         <div>
                           <p className="section-title">Project list</p>
-                          <p className="section-copy">Select a project to open its summary, update, and health view.</p>
+                          <p className="section-copy">Use Details for the normal project update view, or Lifecycle for the separate governance and gateway view.</p>
                         </div>
                       </div>
                       <div className="portfolio-table-wrap">
@@ -2599,18 +3684,31 @@
                               ))}
                             </tr>
                           </thead>
-                          <tbody>
-                            {sortedProjects.map((project) => (
-                              <tr key={project.id} className="clickable-row" tabIndex={0} onClick={() => openProject(project)} onKeyDown={(event) => onProjectRowKeyDown(event, project)}>
-                                <td><div className="project-main">{project.name}</div><div className="project-sub">{project.projectType} · {getRoadmapPhaseLabel(project.roadmapPhase)}</div></td>
-                                <td><span className={`status-pill ${getStatusClass(project.status)}`}>{project.status}</span></td>
-                                <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.projectManager); }}>{project.projectManager}</button></td>
-                                <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.primarySponsor); }}>{project.primarySponsor}</button></td>
-                                <td>{project.department}</td>
-                                <td><div className="size-cell"><span className="size-badge">{project.tshirtSize}</span><span className="size-caption">{getTshirtSizeHint(project.tshirtSize)}</span></div></td>
-                                <td><div className="progress-wrap"><div className="progress-track"><div className={`progress-bar ${getProgressClass(project.status)}`} style={{ width: `${project.completionPercentage}%` }}></div></div><span className="progress-value">{project.completionPercentage}%</span></div></td>
-                              </tr>
-                            ))}
+                            <tbody>
+                              {sortedProjects.map((project) => {
+                                const displayStatus = getLifecycleDisplayStatus(project);
+
+                                return (
+                                  <tr key={project.id} className="clickable-row" tabIndex={0} onClick={() => openProject(project)} onKeyDown={(event) => onProjectRowKeyDown(event, project)}>
+                                    <td>
+                                      <div className="project-main-row">
+                                        <div className="project-main">{project.name}</div>
+                                        <div className="project-entry-actions">
+                                          <button className="project-entry-btn" type="button" onClick={(event) => { event.stopPropagation(); openProject(project); }}>Details</button>
+                                          <button className="project-entry-btn project-entry-btn-lifecycle" type="button" onClick={(event) => { event.stopPropagation(); openLifecycleProject(project); }}>Lifecycle</button>
+                                        </div>
+                                      </div>
+                                      <div className="project-sub">{project.projectType} · Phase: {displayStatus.label}</div>
+                                    </td>
+                                    <td><span className={`status-pill ${getStatusClass(displayStatus.label)}`}>{displayStatus.label}</span></td>
+                                    <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.projectManager); }}>{project.projectManager}</button></td>
+                                    <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.primarySponsor); }}>{project.primarySponsor}</button></td>
+                                    <td>{project.department}</td>
+                                    <td><div className="size-cell"><span className="size-badge">{project.tshirtSize}</span><span className="size-caption">{getTshirtSizeHint(project.tshirtSize)}</span></div></td>
+                                    <td><div className="progress-wrap"><div className="progress-track"><div className={`progress-bar ${getProgressClass(displayStatus.label)}`} style={{ width: `${project.completionPercentage}%` }}></div></div><span className="progress-value">{project.completionPercentage}%</span></div></td>
+                                  </tr>
+                                );
+                              })}
                           </tbody>
                         </table>
                       </div>
@@ -2794,6 +3892,7 @@
           </Modal>
 
           {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} canEditProject={currentUserProfile.isAdmin} onSaveProjectEdits={saveProjectEdits} onOpenProfile={openProfile} />}
+          {isPortfolioPage && <LifecycleGovernanceModal project={selectedLifecycleProject} onClose={() => setSelectedLifecycleProject(null)} />}
           {isPortfolioPage && <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />}
           {showBackToTop && <button className="back-to-top-btn" type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Back to top</button>}
         </>
