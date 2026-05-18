@@ -7,7 +7,6 @@ window.APP_CONFIG = {
   currentUser: mksCurrentUser,
   sidebarNav: [
     { key: "portfolio-home", label: "Home", icon: "grid", active: true },
-    { key: "my-projects", label: "My projects", icon: "briefcase", active: false },
     { key: "roadmap", label: "Roadmap", icon: "roadmapchart", active: false },
     { key: "reports", label: "Reports", icon: "sheet", active: false },
     { key: "settings", label: "Settings", icon: "cog", active: false },

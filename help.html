@@ -18,7 +18,7 @@
   <script src="react-dom.development.js"></script>
   <script src="babel.min.js"></script>
   <script id="app-source" type="text/plain">
-                                    const { useEffect, useMemo, useState } = React;
+                                                                                const { useEffect, useMemo, useState } = React;
     const { sidebarNav, intakeOptions, documentTemplates, mockProjects, currentUser: currentUserProfile } = window.APP_CONFIG;
     const { assess, rules: scoringRules } = window.ScoringEngine;
     const draftStorageKey = "mks-intake-draft";
@@ -27,40 +27,40 @@
     const settingsStorageKey = "mks-portfolio-settings";
     const pageKey = window.MKS_PAGE || "portfolio";
     const queryParams = new URLSearchParams(window.location.search);
-    const initialPortfolioView = queryParams.get("view") === "my-projects" ? "my-projects" : "portfolio-home";
 
     const defaultForm = {
       projectName: "",
-      projectManager: "",
       primarySponsor: "",
+      startDate: "",
+      targetEndDate: "",
       strategicPillar: "",
       department: "",
-      status: "",
       budgetBand: "",
-      deliveryTimeline: "",
-      impactedTeams: "",
       clientSensitiveData: "",
       audienceType: "",
       strategicImportance: "",
+      projectDescription: "",
+      projectManager: "",
+      status: "",
+      deliveryTimeline: "",
+      impactedTeams: "",
       oneLineJustification: ""
     };
     const requiredBriefFields = [
       "projectName",
       "primarySponsor",
+      "startDate",
+      "targetEndDate",
       "strategicPillar",
       "department",
       "budgetBand",
-      "deliveryTimeline",
-      "impactedTeams",
       "clientSensitiveData",
       "audienceType",
       "strategicImportance",
-      "oneLineJustification"
+      "projectDescription"
     ];
     const scoreDriverFields = new Set([
       "budgetBand",
-      "deliveryTimeline",
-      "impactedTeams",
       "clientSensitiveData",
       "audienceType",
       "strategicImportance"
@@ -74,7 +74,17 @@
     };
 
     function normaliseFormValues(values) {
-      return { ...defaultForm, ...(values || {}) };
+      const normalised = { ...defaultForm, ...(values || {}) };
+      if (!normalised.projectDescription && normalised.oneLineJustification) {
+        normalised.projectDescription = normalised.oneLineJustification;
+      }
+      if (!normalised.oneLineJustification && normalised.projectDescription) {
+        normalised.oneLineJustification = normalised.projectDescription;
+      }
+      if (!normalised.projectManager) {
+        normalised.projectManager = currentUserProfile.name;
+      }
+      return normalised;
     }
 
     function getStoredSettings() {
@@ -104,6 +114,77 @@
       const normalised = normaliseFormValues(values);
       const completedFields = requiredBriefFields.filter((field) => normalised[field]).length;
       return Math.round((completedFields / requiredBriefFields.length) * 100);
+    }
+
+    function getDurationInDays(startDate, targetEndDate) {
+      if (!startDate || !targetEndDate) return 0;
+      const start = new Date(startDate);
+      const end = new Date(targetEndDate);
+      const diff = end.getTime() - start.getTime();
+      if (Number.isNaN(diff) || diff < 0) return 0;
+      return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+
+    function deriveDeliveryTimeline(startDate, targetEndDate) {
+      const durationInDays = getDurationInDays(startDate, targetEndDate);
+      if (!durationInDays) return "";
+      if (durationInDays <= 90) return "upto3";
+      if (durationInDays <= 183) return "3to6";
+      if (durationInDays <= 366) return "6to12";
+      return "over12";
+    }
+
+    function buildAssessmentInput(values) {
+      const normalised = normaliseFormValues(values);
+      return {
+        ...normalised,
+        oneLineJustification: normalised.projectDescription || normalised.oneLineJustification,
+        deliveryTimeline: deriveDeliveryTimeline(normalised.startDate, normalised.targetEndDate),
+        impactedTeams: normalised.impactedTeams || "2to3"
+      };
+    }
+
+    function getDepartmentPrefix(department) {
+      const prefixMap = {
+        IT: "IT",
+        Finance: "FIN",
+        Facilities: "FAC",
+        HR: "HR",
+        PMO: "PMO",
+        MKS: "MKS",
+        Tax: "TAX",
+        Audit: "AUD",
+        People: "PPL",
+        Marketing: "MKT",
+        "L&D": "LD"
+      };
+
+      if (prefixMap[department]) return prefixMap[department];
+      const cleaned = (department || "GEN").replace(/[^A-Za-z]/g, "").toUpperCase();
+      return cleaned.slice(0, 3) || "GEN";
+    }
+
+    function getNextProjectNumber(projectList, department) {
+      const prefix = getDepartmentPrefix(department);
+      const matchingNumbers = projectList
+        .filter((project) => project.department === department || `${project.projectNumber || ""}`.startsWith(prefix))
+        .map((project) => {
+          const match = `${project.projectNumber || ""}`.match(/(\d+)$/);
+          return match ? Number(match[1]) : 0;
+        });
+      const nextNumber = (matchingNumbers.length ? Math.max(...matchingNumbers) : 0) + 1;
+      return `${prefix}${String(nextNumber).padStart(6, "0")}`;
+    }
+
+    function notifyPmoMailbox(project) {
+      // Placeholder for future PMO mailbox integration.
+      // This is where a real email, workflow, or API notification would be sent.
+      return {
+        projectName: project.name,
+        projectNumber: project.projectNumber,
+        submittedBy: project.createdBy || currentUserProfile.name,
+        submittedAt: new Date().toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
+      };
     }
 
     function getInitials(name) {
@@ -229,7 +310,7 @@
           submittedDocuments: project.submittedDocuments?.length
             ? project.submittedDocuments
             : (project.draftFormValues && isComplete(project.draftFormValues)
-              ? buildSubmittedDocumentsFromValues(project.draftFormValues, {}, assess(project.draftFormValues), project.name).map((document) => ({
+              ? buildSubmittedDocumentsFromValues(project.draftFormValues, {}, assess(buildAssessmentInput(project.draftFormValues)), project.name).map((document) => ({
                   ...document,
                   uploadedAt: "Submitted earlier"
                 }))
@@ -271,13 +352,14 @@
     }
 
     function buildScoreBreakdown(values) {
+      const assessmentValues = buildAssessmentInput(values);
       const items = [
-        { key: "strategicPriority", label: "Strategic priority", group: "strategicImportance", value: values.strategicImportance },
-        { key: "budget", label: "Budget", group: "budget", value: values.budgetBand },
-        { key: "timeline", label: "Timeline", group: "deliveryTimeline", value: values.deliveryTimeline },
-        { key: "teams", label: "Impacted teams", group: "impactedTeams", value: values.impactedTeams },
-        { key: "data", label: "Sensitive data", group: "clientSensitiveData", value: values.clientSensitiveData },
-        { key: "audience", label: "Audience", group: "audienceType", value: values.audienceType }
+        { key: "strategicPriority", label: "Strategic priority", group: "strategicImportance", value: assessmentValues.strategicImportance },
+        { key: "budget", label: "Budget", group: "budget", value: assessmentValues.budgetBand },
+        { key: "timeline", label: "Timeline", group: "deliveryTimeline", value: assessmentValues.deliveryTimeline },
+        { key: "teams", label: "Impacted teams", group: "impactedTeams", value: assessmentValues.impactedTeams },
+        { key: "data", label: "Sensitive data", group: "clientSensitiveData", value: assessmentValues.clientSensitiveData },
+        { key: "audience", label: "Audience", group: "audienceType", value: assessmentValues.audienceType }
       ];
 
       return items.map((item) => {
@@ -299,11 +381,14 @@
       const sponsor = values.primarySponsor || "To be confirmed";
       const manager = values.projectManager || "To be confirmed";
       const department = values.department || "To be confirmed";
-      const objective = values.oneLineJustification || "No business objective was captured in the prototype record.";
-      const timeline = (intakeOptions.deliveryTimeline || []).find((item) => item.value === values.deliveryTimeline)?.label || "To be confirmed";
+      const objective = values.projectDescription || values.oneLineJustification || "No business objective was captured in the prototype record.";
+      const assessmentValues = buildAssessmentInput(values);
+      const timeline = values.startDate && values.targetEndDate
+        ? `${values.startDate} to ${values.targetEndDate}`
+        : (intakeOptions.deliveryTimeline || []).find((item) => item.value === assessmentValues.deliveryTimeline)?.label || "To be confirmed";
       const budget = (intakeOptions.budgetBands || []).find((item) => item.value === values.budgetBand)?.label || "To be confirmed";
       const dataLabel = values.clientSensitiveData === "yes" ? "Yes" : values.clientSensitiveData === "no" ? "No" : "To be confirmed";
-      const teamsLabel = (intakeOptions.impactedTeams || []).find((item) => item.value === values.impactedTeams)?.label || "To be confirmed";
+      const teamsLabel = (intakeOptions.impactedTeams || []).find((item) => item.value === assessmentValues.impactedTeams)?.label || "To be confirmed";
       const audienceLabel = (intakeOptions.audienceType || []).find((item) => item.value === values.audienceType)?.label || "To be confirmed";
       const priorityLabel = (intakeOptions.strategicImportance || []).find((item) => item.value === values.strategicImportance)?.label || "To be confirmed";
 
@@ -355,6 +440,20 @@
       return { time, scope, budget };
     }
 
+    function buildDefaultHealthRadar(score) {
+      const base = Math.max(1, Math.min(5, Math.round(score / 20)));
+      return {
+        governance: base,
+        sponsorEngagement: Math.min(5, base + 1),
+        scope: base,
+        budget: base,
+        schedule: Math.max(1, base - 1),
+        resourcing: Math.max(1, base - 1),
+        riskIssues: base,
+        quality: Math.min(5, base + 1)
+      };
+    }
+
     function getStoredDraftState() {
       try {
         const stored = window.localStorage.getItem(draftStorageKey);
@@ -402,7 +501,7 @@
       if (project.submittedDocuments?.length) return project.submittedDocuments;
       if (!project.draftFormValues || !isComplete(project.draftFormValues)) return project.submittedDocuments;
 
-      const assessedProject = assess(project.draftFormValues);
+      const assessedProject = assess(buildAssessmentInput(project.draftFormValues));
       const fallbackDocuments = buildSubmittedDocumentsFromValues(project.draftFormValues, {}, assessedProject, project.name);
       if (!fallbackDocuments.length) return project.submittedDocuments;
 
@@ -418,14 +517,22 @@
         label: "Initiation",
         gatewayLabel: "Gateway 1",
         readinessChecklist: [
-          "Be clear on what the project is for.",
-          "Make sure the sponsor agrees the project should start.",
-          "Write down the first risks and assumptions."
+          "Confirm the business need and expected benefits.",
+          "Confirm sponsor, project lead, and decision owners.",
+          "Confirm scope, options, budget, and timeline.",
+          "Confirm key risks, assumptions, and dependencies."
+        ],
+        nextSteps: [
+          "Approve the move into planning.",
+          "Build the detailed plan and milestones.",
+          "Confirm resources, governance, and delivery approach.",
+          "Prepare planning-stage documents for review."
         ],
         documents: [
-          { id: "project-charter", title: "Project Charter", templateLabel: "Initiation - Project Charter.docx" },
-          { id: "sponsor-brief", title: "Sponsor Brief", templateLabel: "Initiation - Sponsor Brief.docx" },
-          { id: "initial-raid-log", title: "Initial RAID Log", templateLabel: "Initiation - Initial RAID Log.xlsx" }
+          { id: "project-charter", title: "Project Charter", summary: "Project purpose and scope", templateLabel: "Initiation - Project Charter.docx", required: true },
+          { id: "sponsor-brief", title: "Sponsor Brief", summary: "Sponsor goals and approval", templateLabel: "Initiation - Sponsor Brief.docx", required: true },
+          { id: "initial-raid-log", title: "RAID Log", summary: "Early risks and assumptions", templateLabel: "Initiation - Initial RAID Log.xlsx", required: true },
+          { id: "options-note", title: "Options Note", summary: "Extra background if needed", templateLabel: "Initiation - Options Note.docx", required: false }
         ]
       },
       {
@@ -433,14 +540,22 @@
         label: "Planning",
         gatewayLabel: "Gateway 2",
         readinessChecklist: [
-          "Agree the plan, dates, and owners.",
-          "Check key links and approvals.",
-          "Get the planning files ready for review."
+          "Approve the delivery approach, scope, and milestones.",
+          "Confirm roles, capacity, and governance forums.",
+          "Confirm dependencies, approvals, and sourcing needs.",
+          "Confirm baseline controls for risk, issue, and change."
+        ],
+        nextSteps: [
+          "Mobilise the team and start delivery.",
+          "Baseline schedule, budget, and reporting cadence.",
+          "Begin active risk, issue, and change control.",
+          "Prepare evidence for the delivery-stage review."
         ],
         documents: [
-          { id: "delivery-plan", title: "Delivery Plan", templateLabel: "Planning - Delivery Plan.xlsx" },
-          { id: "resource-plan", title: "Resource Plan", templateLabel: "Planning - Resource Plan.xlsx" },
-          { id: "governance-pack", title: "Governance Pack", templateLabel: "Planning - Governance Pack.pptx" }
+          { id: "delivery-plan", title: "Delivery Plan", summary: "Plan, dates, and milestones", templateLabel: "Planning - Delivery Plan.xlsx", required: true },
+          { id: "resource-plan", title: "Resource Plan", summary: "People and effort needed", templateLabel: "Planning - Resource Plan.xlsx", required: true },
+          { id: "governance-pack", title: "Governance Pack", summary: "Governance approach and decisions", templateLabel: "Planning - Governance Pack.pptx", required: true },
+          { id: "stakeholder-plan", title: "Stakeholder Plan", summary: "Extra stakeholder notes", templateLabel: "Planning - Stakeholder Plan.docx", required: false }
         ]
       },
       {
@@ -448,32 +563,61 @@
         label: "Delivery",
         gatewayLabel: "Gateway 3",
         readinessChecklist: [
-          "Keep the main controls up to date.",
-          "Upload the key risk, change, and status files.",
-          "Get the pack ready for gateway review."
+          "Confirm delivery is on track for scope, time, and cost.",
+          "Confirm risks, issues, and changes are controlled.",
+          "Confirm testing, readiness, and stakeholder actions are complete.",
+          "Confirm the gateway pack shows delivery evidence and decisions."
+        ],
+        nextSteps: [
+          "Complete rollout and transition activities.",
+          "Confirm service readiness and operational handover.",
+          "Close remaining risks, actions, and open changes.",
+          "Prepare closure and lessons learned materials."
         ],
         documents: [
-          { id: "delivery-status-pack", title: "Delivery Status Pack", templateLabel: "Delivery - Status Pack.pptx" },
-          { id: "change-log", title: "Change Log", templateLabel: "Delivery - Change Log.xlsx" },
-          { id: "gate-readiness-pack", title: "Gateway Readiness Pack", templateLabel: "Delivery - Gateway Readiness Pack.docx" }
+          { id: "delivery-status-pack", title: "Status Pack", summary: "Current delivery progress", templateLabel: "Delivery - Status Pack.pptx", required: true },
+          { id: "change-log", title: "Change Log", summary: "Record approved changes", templateLabel: "Delivery - Change Log.xlsx", required: true },
+          { id: "gate-readiness-pack", title: "Gateway Pack", summary: "Evidence for gateway review", templateLabel: "Delivery - Gateway Readiness Pack.docx", required: true },
+          { id: "training-pack", title: "Training Pack", summary: "Extra training notes", templateLabel: "Delivery - Training Pack.docx", required: false }
         ]
       },
       {
         key: "closure",
         label: "Closure",
-        gatewayLabel: "Closure Gate",
+        gatewayLabel: "Gateway 4 / Closure Gateway",
         readinessChecklist: [
-          "Finish the close-down files.",
-          "Agree who will own the work after handover.",
-          "Write down the lessons learned."
+          "Confirm deliverables are accepted and handover is complete.",
+          "Confirm benefits owner, support model, and open actions.",
+          "Confirm financial closure, contracts, and final records.",
+          "Confirm closure report and lessons learned are agreed."
+        ],
+        nextSteps: [
+          "Start post-project support and benefits tracking.",
+          "Confirm business ownership after handover.",
+          "Archive final records and approvals.",
+          "Schedule the post-project review and share lessons."
         ],
         documents: [
-          { id: "closure-report", title: "Closure Report", templateLabel: "Closure - Closure Report.docx" },
-          { id: "handover-pack", title: "Handover Pack", templateLabel: "Closure - Handover Pack.docx" },
-          { id: "lessons-learned", title: "Lessons Learned", templateLabel: "Closure - Lessons Learned.docx" }
+          { id: "closure-report", title: "Closure Report", summary: "Project outcomes and closure", templateLabel: "Closure - Closure Report.docx", required: true },
+          { id: "handover-pack", title: "Handover Pack", summary: "Operational handover details", templateLabel: "Closure - Handover Pack.docx", required: true },
+          { id: "lessons-learned", title: "Lessons Learned", summary: "What worked and what did not", templateLabel: "Closure - Lessons Learned.docx", required: true },
+          { id: "benefits-note", title: "Benefits Note", summary: "Extra benefits notes", templateLabel: "Closure - Benefits Note.docx", required: false }
         ]
       }
     ];
+
+    const lifecycleReviewStatuses = {
+      notSubmitted: "Not submitted",
+      submitted: "Submitted for PMO review",
+      approved: "Approved",
+      onHold: "On hold",
+      rejected: "Rejected"
+    };
+
+    function getLifecycleFileExtension(fileName) {
+      const match = fileName.match(/\.[^.]+$/);
+      return match ? match[0] : ".docx";
+    }
 
     const lifecycleCurrentPhaseOverrides = {
       practicepoint: "delivery"
@@ -504,7 +648,31 @@
       return Math.max(0, lifecyclePhaseDefinitions.findIndex((phase) => phase.key === phaseKey));
     }
 
+    function getRoadmapPhaseForLifecyclePhase(phaseKey) {
+      if (phaseKey === "initiation") return "submitted";
+      if (phaseKey === "planning") return "definition";
+      if (phaseKey === "delivery") return "delivery";
+      if (phaseKey === "closure") return "closure";
+      return "submitted";
+    }
+
+    function canAccessLifecycleProject(project) {
+      if (!project) return false;
+      return !!(
+        currentUserProfile.isAdmin
+        || project.createdBy === currentUserProfile.name
+        || project.projectManager === currentUserProfile.name
+        || project.primarySponsor === currentUserProfile.name
+      );
+    }
+
+    function isPmoAdminUser() {
+      return !!currentUserProfile.isAdmin;
+    }
+
     function mapProjectToLifecyclePhase(project) {
+      if (project.lifecycleCurrentPhase) return project.lifecycleCurrentPhase;
+      if (project.lifecycleGovernance?.currentPhase) return project.lifecycleGovernance.currentPhase;
       const overridePhase = lifecycleCurrentPhaseOverrides[normaliseProjectName(project.name)];
       if (overridePhase) return overridePhase;
       if (project.status === "Completed" || project.roadmapPhase === "closure") return "closure";
@@ -533,30 +701,38 @@
     }
 
     function buildLifecycleGovernanceRecord(project) {
+      const savedRecord = project.lifecycleGovernance || {};
       const currentPhase = mapProjectToLifecyclePhase(project);
 
       return {
         currentPhase,
         phases: lifecyclePhaseDefinitions.map((phase) => {
           const relation = getLifecyclePhaseRelation(phase.key, currentPhase);
+          const savedPhase = savedRecord.phases?.find((item) => item.key === phase.key) || {};
           return {
             key: phase.key,
             label: phase.label,
             gatewayLabel: phase.gatewayLabel,
             readinessChecklist: phase.readinessChecklist,
+            nextSteps: phase.nextSteps,
             documents: phase.documents.map((document, index) => {
+              const savedDocument = savedPhase.documents?.find((item) => item.id === document.id) || {};
               const uploaded = isLifecycleDocumentUploaded(project, phase.key, relation, index);
-              const uploadedFileName = `${project.name} - ${document.title}.docx`;
+              const uploadedFileName = `${project.name} - ${document.title}${getLifecycleFileExtension(document.templateLabel)}`;
               return {
                 ...document,
-                uploaded,
-                uploadedAt: uploaded ? (relation === "historic" ? "Passed gateway" : "Uploaded for review") : "",
+                uploaded: typeof savedDocument.uploaded === "boolean" ? savedDocument.uploaded : uploaded,
+                uploadedAt: savedDocument.uploadedAt || (uploaded ? (relation === "historic" ? "Passed gateway" : "Uploaded for review") : ""),
                 uploadedFileName,
                 templateHref: buildMockSharePointHref(document.templateLabel, project.name, `${phase.label} template`),
-                uploadedHref: uploaded ? buildMockSharePointHref(uploadedFileName, project.name, `${phase.label} uploaded file`) : "",
+                uploadedHref: savedDocument.uploadedHref || (uploaded ? buildMockSharePointHref(uploadedFileName, project.name, `${phase.label} uploaded file`) : ""),
                 readOnly: relation === "historic"
               };
-            })
+            }),
+            additionalDocuments: savedPhase.additionalDocuments || [],
+            reviewStatus: savedPhase.reviewStatus || lifecycleReviewStatuses.notSubmitted,
+            reviewFeedback: savedPhase.reviewFeedback || "",
+            auditTrail: savedPhase.auditTrail || []
           };
         })
       };
@@ -690,16 +866,17 @@
 
     function getStatusClass(status) {
       if (status === "Draft") return "status-draft";
-      if (status === "Submitted" || status === "Initiation") return "status-initiation";
+      if (status === "Submitted" || status === "Initiation" || status === "Submitted for PMO review") return "status-initiation";
       if (status === "Active" || status === "Delivery") return "status-active";
       if (status === "Planning") return "status-planning";
       if (status === "Completed" || status === "Closure") return "status-completed";
+      if (status === "Rejected") return "status-onhold";
       return "status-onhold";
     }
 
     function getProgressClass(status) {
       if (status === "Active" || status === "Delivery" || status === "Completed" || status === "Closure") return "progress-green";
-      if (status === "Planning" || status === "On hold") return "progress-orange";
+      if (status === "Planning" || status === "On hold" || status === "Rejected") return "progress-orange";
       return "progress-blue";
     }
 
@@ -730,8 +907,16 @@
         return { label: "Draft", phaseKey: "draft" };
       }
 
+      if (project.status === "Submitted for PMO review") {
+        return { label: "Submitted for PMO review", phaseKey: "review" };
+      }
+
       if (project.status === "On hold") {
         return { label: "On hold", phaseKey: "onhold" };
+      }
+
+      if (project.status === "Rejected") {
+        return { label: "Rejected", phaseKey: "rejected" };
       }
 
       const lifecyclePhase = mapProjectToLifecyclePhase(project);
@@ -749,14 +934,27 @@
     }
 
     function getSubmittedTimeline(values) {
+      const normalised = normaliseFormValues(values);
+      if (normalised.startDate && normalised.targetEndDate) {
+        const start = new Date(normalised.startDate);
+        const end = new Date(normalised.targetEndDate);
+        if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+          return {
+            timelineYear: end.getFullYear(),
+            timelineStartMonth: start.getMonth() + 1,
+            timelineEndMonth: end.getMonth() + 1
+          };
+        }
+      }
+
       const timelineMap = {
         upto3: { timelineYear: 2026, timelineStartMonth: 4, timelineEndMonth: 6 },
         "3to6": { timelineYear: 2026, timelineStartMonth: 5, timelineEndMonth: 10 },
         "6to12": { timelineYear: 2026, timelineStartMonth: 6, timelineEndMonth: 12 },
         over12: { timelineYear: 2027, timelineStartMonth: 1, timelineEndMonth: 12 }
       };
-
-      return timelineMap[values.deliveryTimeline] || { timelineYear: 2026, timelineStartMonth: 5, timelineEndMonth: 10 };
+      const assessmentValues = buildAssessmentInput(values);
+      return timelineMap[assessmentValues.deliveryTimeline] || { timelineYear: 2026, timelineStartMonth: 5, timelineEndMonth: 10 };
     }
 
     function iconPath(icon) {
@@ -784,7 +982,6 @@
 
     function getNavHref(key) {
       if (key === "portfolio-home") return "index.html";
-      if (key === "my-projects") return "index.html?view=my-projects";
       if (key === "roadmap") return "roadmap.html";
       if (key === "reports") return "reports.html";
       if (key === "settings") return "settings.html";
@@ -932,7 +1129,7 @@
         <div className="field-label-block">
           <span className="field-label-text">
             {title}
-            {required && <span className="required-asterisk">*</span>}
+            {required && <span className="required-asterisk">?</span>}
             {driver && <span className="field-driver-inline">drives score and size</span>}
           </span>
           {helper && <span className="field-helper-copy">{helper}</span>}
@@ -942,89 +1139,129 @@
 
     function buildSubmissionJourney(project) {
       const reviewLabel = `Review by head of ${project.department || "the relevant department"} and PMO`;
-      const currentStatus = project.status === "Submitted"
-        ? "Submitted and waiting for review"
+      const currentStatus = project.status === "Submitted for PMO review"
+        ? "Sent to PMO for review"
+        : project.status === "Submitted"
+          ? "Brief submitted"
         : project.status === "Planning"
           ? "Approved to move into planning"
-          : project.status === "Active"
-            ? "Approved and in delivery"
-            : project.status === "On hold"
-              ? "Approved but currently on hold"
-              : project.status === "Completed"
-                ? "Completed"
-                : "Draft";
-
+        : project.status === "Active" || project.status === "Delivery"
+          ? "Approved and in delivery"
+        : project.status === "On hold"
+          ? "Approved but currently on hold"
+        : project.status === "Rejected"
+          ? "More work is needed before review"
+        : project.status === "Completed" || project.status === "Closure"
+          ? "Completed"
+          : "Draft";
+      const decisionBoardDoneStatuses = ["Planning", "Active", "Delivery", "Closure", "On hold", "Rejected", "Completed"];
+      const reviewCurrentStatuses = ["Submitted", "Submitted for PMO review"];
       const steps = [
         { label: "Project submitted", state: "done" },
-        { label: reviewLabel, state: project.status === "Submitted" ? "current" : "done" },
-        { label: "Decision board", state: ["Planning", "Active", "On hold", "Completed"].includes(project.status) ? "done" : project.status === "Submitted" ? "upcoming" : "upcoming" },
-        { label: "Approved or rejected", state: ["Planning", "Active", "On hold", "Completed"].includes(project.status) ? "current" : "upcoming" }
+        { label: reviewLabel, state: reviewCurrentStatuses.includes(project.status) ? "current" : "done" },
+        { label: "Decision board", state: decisionBoardDoneStatuses.includes(project.status) ? "done" : "upcoming" },
+        { label: "Approved or rejected", state: decisionBoardDoneStatuses.includes(project.status) ? "current" : "upcoming" }
       ];
 
       return { currentStatus, steps };
     }
 
-    function ProjectDetailModal({ project, onClose, canResumeDraft, onResumeDraft, canEditProject, onSaveProjectEdits, onOpenProfile }) {
-      const [isContextEditing, setIsContextEditing] = useState(false);
-      const [isUpdateEditing, setIsUpdateEditing] = useState(false);
-      const [contextValues, setContextValues] = useState({});
-      const [updateValues, setUpdateValues] = useState({});
-      const [selectedDocument, setSelectedDocument] = useState(null);
-      const [isHealthOpen, setIsHealthOpen] = useState(false);
+    function getAudienceTypeLabel(value) {
+      return intakeOptions.audienceType.find((item) => item.value === value)?.label || "To be confirmed";
+    }
 
-      useEffect(() => {
-        if (!project) return;
+    function getPriorityLabel(value) {
+      return intakeOptions.strategicImportance.find((item) => item.value === value)?.label || "To be confirmed";
+    }
 
-        setIsContextEditing(false);
-        setIsUpdateEditing(false);
-        setIsHealthOpen(false);
-        setSelectedDocument(null);
-        setContextValues({
-          projectManager: project.projectManager,
-          primarySponsor: project.primarySponsor,
-          department: project.department,
-          projectType: project.projectType,
-          strategicPillar: project.strategicPillar,
-          budget: project.budget
-        });
-        setUpdateValues({
-          whatHappenedLastMonth: project.whatHappenedLastMonth,
-          currentPosition: project.currentPosition,
-          next30DaysPipeline: project.next30DaysPipeline,
-          steeringDecisionNeeded: project.steeringDecisionNeeded
-        });
-      }, [project]);
+    function getSensitiveDataLabel(value) {
+      if (value === "yes") return "Yes";
+      if (value === "no") return "No";
+      return "To be confirmed";
+    }
 
+    function getBudgetBandLabel(value) {
+      return intakeOptions.budgetBands.find((item) => item.value === value)?.label || "To be confirmed";
+    }
+
+    function getProjectTypeFromAudience(value) {
+      if (value === "client") return "Client-facing initiative";
+      if (value === "internal") return "Internal initiative";
+      if (value === "hybrid") return "Hybrid initiative";
+      return "Project";
+    }
+
+    function buildProjectFromBrief(values, options = {}) {
+      const normalised = normaliseFormValues(values);
+      const assessmentInput = buildAssessmentInput(normalised);
+      const assessment = isComplete(normalised) ? assess(assessmentInput) : null;
+      const projectNumber = options.projectNumber !== undefined
+        ? options.projectNumber
+        : getNextProjectNumber(options.projectList || [], normalised.department);
+      const projectId = options.projectId || `project-${Date.now()}`;
+      const createdBy = options.createdBy || currentUserProfile.name;
+      const budgetLabel = getBudgetBandLabel(normalised.budgetBand);
+      const submittedTimeline = getSubmittedTimeline(normalised);
+      const lifecycleCurrentPhase = options.lifecycleCurrentPhase || "initiation";
+
+      return hydrateProject({
+        id: projectId,
+        projectNumber,
+        name: normalised.projectName,
+        status: options.status || "Submitted",
+        tshirtSize: assessment?.tshirtSize || "TBC",
+        completionPercentage: options.completionPercentage ?? 0,
+        projectManager: normalised.projectManager || createdBy,
+        primarySponsor: normalised.primarySponsor,
+        department: normalised.department,
+        projectType: getProjectTypeFromAudience(normalised.audienceType),
+        strategicPillar: normalised.strategicPillar,
+        budget: budgetLabel,
+        overallScore: assessment?.score || 0,
+        currentRisk: options.currentRisk || "New brief submitted",
+        roadmapPhase: options.roadmapPhase || "submitted",
+        currentPhaseProgress: options.currentPhaseProgress ?? 0,
+        whatHappenedLastMonth: options.whatHappenedLastMonth || "The new project brief has been submitted.",
+        currentPosition: options.currentPosition || "This project is in initiation and waiting for the next gateway step.",
+        next30DaysPipeline: options.next30DaysPipeline || "Finish initiation documents, get ready for the gateway, and send it for PMO review.",
+        steeringDecisionNeeded: options.steeringDecisionNeeded || "No decision needed yet.",
+        businessObjective: normalised.projectDescription,
+        projectHealthChartData: buildDefaultHealthRadar(assessment?.score || 20),
+        projectHealthTriangleData: buildTriangleFromIndicators({
+          overallScore: assessment?.score || 20,
+          status: options.status || "Submitted",
+          currentRisk: options.currentRisk || "New brief submitted"
+        }),
+        healthCheckReportUrl: "",
+        createdBy,
+        createdByEmail: options.createdByEmail || currentUserProfile.email || "",
+        draftFormValues: options.draftFormValues ?? null,
+        submittedDocuments: options.submittedDocuments || [],
+        lifecycleCurrentPhase,
+        lifecycleReviewStatus: options.lifecycleReviewStatus || lifecycleReviewStatuses.notSubmitted,
+        startDate: normalised.startDate,
+        targetEndDate: normalised.targetEndDate,
+        audienceType: getAudienceTypeLabel(normalised.audienceType),
+        clientSensitiveDataLabel: getSensitiveDataLabel(normalised.clientSensitiveData),
+        strategicPriorityLabel: getPriorityLabel(normalised.strategicImportance),
+        budgetBandLabel: budgetLabel,
+        ...submittedTimeline
+      });
+    }
+
+    function ProjectDetailModal({ project, onClose, canResumeDraft, onResumeDraft }) {
       if (!project) {
         return <Modal isOpen={false} onClose={onClose} titleId="projectDetailTitle" />;
       }
 
       const projectDisplayStatus = getLifecycleDisplayStatus(project);
-
-      const saveContext = () => {
-        onSaveProjectEdits(project.id, contextValues);
-        setIsContextEditing(false);
-      };
-
-      const saveUpdates = () => {
-        onSaveProjectEdits(project.id, updateValues);
-        setIsUpdateEditing(false);
-      };
-      const isSubmittedStyleProject = project.status !== "Draft" || isSubmittedWorkflowProject(project) || normaliseProjectName(project.name) === "nuthatch";
-      const modalSubmittedDocuments = project.submittedDocuments?.length ? project.submittedDocuments : (isSubmittedStyleProject ? buildFallbackSubmittedDocuments(project) : []);
+      const lifecycleRecord = buildLifecycleGovernanceRecord(project);
+      const currentPhaseRecord = lifecycleRecord.phases.find((phase) => phase.key === lifecycleRecord.currentPhase) || lifecycleRecord.phases[0];
+      const currentPhaseReview = currentPhaseRecord.reviewStatus || lifecycleReviewStatuses.notSubmitted;
       const submissionJourney = buildSubmissionJourney(project);
-      const steeringMeta = project.status === "Submitted"
-        ? {
-            fromWho: `PMO and ${project.department || "the relevant department"} head`,
-            byWhen: "Next decision board"
-          }
-        : {
-            fromWho: project.primarySponsor || "Project sponsor",
-            byWhen: "Next monthly review"
-          };
+      const showFutureSections = false;
 
       return (
-        <>
         <Modal isOpen={!!project} onClose={onClose} titleId="projectDetailTitle">
           <div className="detail-modal">
             <div className="detail-header">
@@ -1041,22 +1278,22 @@
             <section className="detail-card summary-card">
               <div className="section-header-row">
                 <div className="section-title-row">
-                  <p className="section-title">Project snapshot</p>
+                  <p className="section-title">Snapshot</p>
                 </div>
               </div>
               {project.status === "Draft" && canResumeDraft && (
                 <div className="draft-banner">
                   <div>
-                    <p className="draft-banner-title">Draft application</p>
-                    <p className="draft-banner-copy">This project has been started but not yet submitted. Resume the form to finish the remaining fields, upload the required documents, and submit the application.</p>
+                    <p className="draft-banner-title">Draft brief</p>
+                    <p className="draft-banner-copy">This brief is not finished yet. Open it and carry on from where you stopped.</p>
                   </div>
-                  <button className="primary-btn" type="button" onClick={() => onResumeDraft(project)}>Resume form completion</button>
+                  <button className="primary-btn" type="button" onClick={() => onResumeDraft(project)}>Resume form</button>
                 </div>
               )}
               <div className="summary-grid">
-                <div><dt>Completion percentage</dt><dd>{project.completionPercentage}%</dd></div>
-                <div><dt>Overall score</dt><dd>{project.overallScore}/100</dd></div>
-                <div><dt>Current status</dt><dd>{submissionJourney.currentStatus}</dd></div>
+                <div><dt>Completion</dt><dd>{project.completionPercentage}%</dd></div>
+                <div><dt>Score</dt><dd>{project.overallScore}/100</dd></div>
+                <div><dt>Status</dt><dd>{submissionJourney.currentStatus}</dd></div>
               </div>
             </section>
 
@@ -1064,291 +1301,290 @@
               <section className="detail-card">
                 <div className="section-header-row">
                   <div className="section-title-row">
-                    <p className="section-title">Project details</p>
+                    <p className="section-title">Initiation information/status</p>
                   </div>
-                  {canEditProject && (
-                    <div className="section-actions">
-                      {isContextEditing && <button className="secondary-btn section-save-btn" type="button" onClick={saveContext}>Save</button>}
-                      <button className="icon-btn section-icon-btn" type="button" aria-label="Edit project context" onClick={() => setIsContextEditing((current) => !current)}><Icon icon="edit" className="icon-only-svg" /></button>
-                    </div>
-                  )}
                 </div>
-                {isContextEditing ? (
-                  <div className="detail-edit-grid">
-                    <label><span>Project Manager</span><input type="text" value={contextValues.projectManager || ""} onChange={(event) => setContextValues((current) => ({ ...current, projectManager: event.target.value }))} /></label>
-                    <label><span>Primary Sponsor</span><input type="text" value={contextValues.primarySponsor || ""} onChange={(event) => setContextValues((current) => ({ ...current, primarySponsor: event.target.value }))} /></label>
-                    <label><span>Department</span><select value={contextValues.department || ""} onChange={(event) => setContextValues((current) => ({ ...current, department: event.target.value }))}><option value="">Select</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-                    <label><span>Project Type</span><input type="text" value={contextValues.projectType || ""} onChange={(event) => setContextValues((current) => ({ ...current, projectType: event.target.value }))} /></label>
-                    <label><span>Strategic Pillar</span><select value={contextValues.strategicPillar || ""} onChange={(event) => setContextValues((current) => ({ ...current, strategicPillar: event.target.value }))}><option value="">Select</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-                    <label><span>Budget</span><select value={contextValues.budget || ""} onChange={(event) => setContextValues((current) => ({ ...current, budget: event.target.value }))}><option value="">Select</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.label}>{item.label}</option>)}</select></label>
-                  </div>
-                ) : (
-                  <>
-                  <dl className="detail-list">
-                    <div><dt>Project Manager</dt><dd><button className="profile-link" type="button" onClick={() => onOpenProfile(project.projectManager)}>{project.projectManager}</button></dd></div>
-                    <div><dt>Primary Sponsor</dt><dd><button className="profile-link" type="button" onClick={() => onOpenProfile(project.primarySponsor)}>{project.primarySponsor}</button></dd></div>
-                    <div><dt>Department</dt><dd>{project.department}</dd></div>
-                    <div><dt>Project Type</dt><dd>{project.projectType}</dd></div>
-                    <div><dt>Strategic Pillar</dt><dd>{project.strategicPillar}</dd></div>
-                    <div><dt>Budget</dt><dd>{project.budget}</dd></div>
-                    <div className="detail-list-full"><dt>Business objective</dt><dd>{project.businessObjective}</dd></div>
-                  </dl>
-                  {modalSubmittedDocuments?.length ? (
-                    <div className="compact-documents-block">
-                      <p className="section-title compact-section-title">Submitted documents</p>
-                      <p className="section-copy">Opening a document shows a generated summary from the submitted brief, not the original Word file.</p>
-                      <div className="submitted-documents-list">
-                        {modalSubmittedDocuments.map((doc) => (
-                          <div className="submitted-document-item" key={`${project.id}-${doc.documentName}`}>
-                            <div className="document-summary submitted-document-summary">
-                              <button className="submitted-document-open" type="button" onClick={() => setSelectedDocument(doc)}>
-                                <div className="document-icon-badge"><Icon icon="doc" className="document-icon-svg" /></div>
-                                <div className="document-meta">
-                                  <strong>{doc.documentName}</strong>
-                                  <span className="document-template-type">{doc.fileName}</span>
-                                </div>
-                              </button>
-                              <div className="submitted-document-actions">
-                                <button className="doc-link" type="button" onClick={() => setSelectedDocument(doc)}>Preview summary</button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  </>
-                )}
+                <dl className="detail-list">
+                  <div><dt>Project number</dt><dd>{project.projectNumber || "To be set"}</dd></div>
+                  <div><dt>Lifecycle stage</dt><dd>{currentPhaseRecord.label}</dd></div>
+                  <div><dt>Gateway</dt><dd>{currentPhaseRecord.gatewayLabel}</dd></div>
+                  <div><dt>PMO review</dt><dd>{currentPhaseReview}</dd></div>
+                </dl>
               </section>
 
               <section className="detail-card">
                 <div className="section-header-row">
                   <div className="section-title-row">
-                    <p className="section-title">Monthly update and steering</p>
-                  </div>
-                  <div className="section-actions">
-                    {canEditProject && (
-                      <>
-                        {isUpdateEditing && <button className="secondary-btn section-save-btn" type="button" onClick={saveUpdates}>Save</button>}
-                        <button className="icon-btn section-icon-btn" type="button" aria-label="Edit monthly update and steering" onClick={() => setIsUpdateEditing((current) => !current)}><Icon icon="edit" className="icon-only-svg" /></button>
-                      </>
-                    )}
+                    <p className="section-title">Size</p>
                   </div>
                 </div>
-                {isUpdateEditing ? (
-                  <div className="detail-edit-grid update-edit-grid">
-                    <label className="full-width"><span>What happened last month</span><textarea rows="3" value={updateValues.whatHappenedLastMonth || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, whatHappenedLastMonth: event.target.value }))} /></label>
-                    <label className="full-width"><span>Where we are at the moment</span><textarea rows="3" value={updateValues.currentPosition || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, currentPosition: event.target.value }))} /></label>
-                    <label className="full-width"><span>What is in the pipeline for the next 30 days</span><textarea rows="3" value={updateValues.next30DaysPipeline || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, next30DaysPipeline: event.target.value }))} /></label>
-                    <label className="full-width"><span>What decision needs steering, from who, and by when</span><textarea rows="3" value={updateValues.steeringDecisionNeeded || ""} onChange={(event) => setUpdateValues((current) => ({ ...current, steeringDecisionNeeded: event.target.value }))} /></label>
-                  </div>
-                ) : (
-                  <dl className="detail-list stacked update-list">
-                    <div><dt>What happened last month</dt><dd>{project.whatHappenedLastMonth}</dd></div>
-                    <div><dt>Where we are at the moment</dt><dd>{project.currentPosition}</dd></div>
-                    <div><dt>What is in the pipeline for the next 30 days</dt><dd>{project.next30DaysPipeline}</dd></div>
-                    <div>
-                      <dt>What decision needs steering, from who, and by when</dt>
-                      <dd>
-                        <ul className="update-inline-list">
-                          <li>{project.steeringDecisionNeeded}</li>
-                          <li>From who: {steeringMeta.fromWho}</li>
-                          <li>By when: {steeringMeta.byWhen}</li>
-                        </ul>
-                      </dd>
-                    </div>
-                  </dl>
-                )}
+                <dl className="detail-list">
+                  <div><dt>T-shirt size</dt><dd>{project.tshirtSize}</dd></div>
+                  <div><dt>Meaning</dt><dd>{getTshirtSizeHint(project.tshirtSize)}</dd></div>
+                </dl>
               </section>
 
               <section className="detail-card full-span">
                 <div className="section-header-row">
                   <div className="section-title-row">
-                    <p className="section-title">Project health</p>
-                  </div>
-                  <div className="section-actions">
-                    <button className="secondary-btn" type="button" onClick={() => setIsHealthOpen((current) => !current)}>
-                      {isHealthOpen ? "Collapse" : "Expand"}
-                    </button>
+                    <p className="section-title">Details</p>
                   </div>
                 </div>
-                {isHealthOpen ? (
-                  <>
-                    <p className="radar-intro">A quick view of where the project looks healthy and where it may need more support.</p>
-                    <div className="health-grid">
-                      <div className="health-panel">
-                        <p className="health-panel-title">Radar view</p>
-                        <RadarChart data={project.projectHealthChartData} />
-                      </div>
-                      <div className="health-panel">
-                        <p className="health-panel-title">Golden triangle</p>
-                        {project.projectHealthTriangleData ? (
-                          <TriangleChart data={project.projectHealthTriangleData} />
-                        ) : (
-                          <p className="chart-empty-state">This view appears once the project has been submitted. Finish and submit the brief to generate it.</p>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p className="section-copy">Project health is collapsed by default to keep this view short and easy to scan.</p>
-                )}
+                <dl className="detail-list">
+                  <div><dt>Project manager</dt><dd>{project.projectManager}</dd></div>
+                  <div><dt>Primary sponsor</dt><dd>{project.primarySponsor}</dd></div>
+                  <div><dt>Department</dt><dd>{project.department}</dd></div>
+                  <div><dt>Strategic pillar</dt><dd>{project.strategicPillar}</dd></div>
+                  <div><dt>Start date</dt><dd>{project.startDate || "To be confirmed"}</dd></div>
+                  <div><dt>Target end date</dt><dd>{project.targetEndDate || "To be confirmed"}</dd></div>
+                  <div><dt>Budget</dt><dd>{project.budget}</dd></div>
+                  <div><dt>Audience</dt><dd>{project.projectType}</dd></div>
+                  <div className="detail-list-full"><dt>Project description</dt><dd>{project.businessObjective}</dd></div>
+                </dl>
               </section>
+
+              {showFutureSections && <section className="detail-card full-span"></section>}
             </div>
           </div>
         </Modal>
-        <Modal isOpen={!!selectedDocument} onClose={() => setSelectedDocument(null)} titleId="submittedDocumentTitle">
-          {selectedDocument && (
-            <div className="detail-modal document-viewer-modal">
-              <div className="detail-header">
-                <div>
-                  <p className="eyebrow">Submitted document summary</p>
-                  <h2 id="submittedDocumentTitle" className="detail-title">{selectedDocument.documentName}</h2>
-                  <div className="detail-badges">
-                    <span className="status-pill status-planning">Generated summary</span>
-                  </div>
-                </div>
-                <button className="icon-btn" type="button" aria-label="Close submitted document" onClick={() => setSelectedDocument(null)}><Icon icon="close" className="icon-only-svg" /></button>
-              </div>
-              <section className="detail-card full-span">
-                <p className="section-copy">This view is generated from the submitted brief and document list. It is not the original uploaded Word file.</p>
-                <div className="document-viewer-meta">
-                  <div><dt>File name</dt><dd>{selectedDocument.fileName}</dd></div>
-                  <div><dt>Uploaded</dt><dd>{selectedDocument.uploadedAt}</dd></div>
-                  <div><dt>Mode</dt><dd>Preview summary</dd></div>
-                </div>
-                <div className="document-viewer-body">
-                  <pre>{selectedDocument.readOnlyContent || "A generated summary is not available for this document yet."}</pre>
-                </div>
-              </section>
-            </div>
-          )}
-        </Modal>
-        </>
       );
     }
 
-    function LifecycleGovernanceModal({ project, onClose }) {
+    function LifecycleGovernanceModal({ project, onClose, onSaveLifecycleProject, canReviewPmo }) {
       const [lifecycleRecord, setLifecycleRecord] = useState(null);
       const [activePhase, setActivePhase] = useState("initiation");
+      const [lifecycleNotice, setLifecycleNotice] = useState("");
 
       useEffect(() => {
         if (!project) {
           setLifecycleRecord(null);
           setActivePhase("initiation");
+          setLifecycleNotice("");
           return;
         }
 
         const record = buildLifecycleGovernanceRecord(project);
         setLifecycleRecord(record);
         setActivePhase(record.currentPhase);
+        setLifecycleNotice("");
       }, [project]);
 
       if (!project || !lifecycleRecord) {
         return <Modal isOpen={false} onClose={onClose} titleId="lifecycleGovernanceTitle" />;
       }
 
-      const currentPhaseIndex = getLifecyclePhaseIndex(lifecycleRecord.currentPhase);
+      const projectObjective = project.businessObjective || project.draftFormValues?.projectDescription || "No project description has been added yet.";
       const activePhaseRecord = lifecycleRecord.phases.find((phase) => phase.key === activePhase) || lifecycleRecord.phases[0];
       const activeRelation = getLifecyclePhaseRelation(activePhaseRecord.key, lifecycleRecord.currentPhase);
-      const activeUploadedCount = activePhaseRecord.documents.filter((document) => document.uploaded).length;
-      const nextPhaseRecord = lifecycleRecord.phases.find((phase) => getLifecyclePhaseRelation(phase.key, lifecycleRecord.currentPhase) === "next") || null;
+      const currentPhaseIndex = getLifecyclePhaseIndex(lifecycleRecord.currentPhase);
+      const followingPhaseRecord = lifecycleRecord.phases[getLifecyclePhaseIndex(activePhaseRecord.key) + 1] || null;
+      const requiredDocuments = activePhaseRecord.documents.filter((document) => document.required !== false);
+      const optionalDocuments = activePhaseRecord.documents.filter((document) => document.required === false);
+      const activeUploadedCount = requiredDocuments.filter((document) => document.uploaded).length;
+      const requiredDocumentsReady = requiredDocuments.every((document) => document.uploaded);
+      const canSubmitForGateway = activeRelation === "current" && requiredDocumentsReady;
+      const reviewStatusClass = activePhaseRecord.reviewStatus === lifecycleReviewStatuses.approved
+        ? "approved"
+        : activePhaseRecord.reviewStatus === lifecycleReviewStatuses.onHold
+          ? "on-hold"
+          : activePhaseRecord.reviewStatus === lifecycleReviewStatuses.rejected
+            ? "rejected"
+            : activePhaseRecord.reviewStatus === lifecycleReviewStatuses.submitted
+              ? "submitted"
+              : "draft";
 
-      const getPhaseGuidance = (relation) => {
-        if (relation === "historic") {
-          return {
-            heading: "Stage complete",
-            copy: "This stage is done. You can still open the files, but you cannot change them."
-          };
-        }
-
-        if (relation === "current") {
-          return {
-            heading: `${activePhaseRecord.label} stage`,
-            copy: "This is the stage the project is in now."
-          };
-        }
-
-        if (relation === "next") {
-          return {
-            heading: `${activePhaseRecord.label} stage`,
-            copy: "This stage is next. You can start getting ready now."
-          };
-        }
-
-        return {
-          heading: `${activePhaseRecord.label} stage`,
-          copy: "This stage comes later."
-        };
-      };
-
-      const getReadinessState = (phase) => {
-        const relation = getLifecyclePhaseRelation(phase.key, lifecycleRecord.currentPhase);
-        const uploadedCount = phase.documents.filter((document) => document.uploaded).length;
-        const requiredCount = phase.documents.length;
-
-        if (relation === "historic") {
+      const getReadinessState = () => {
+        if (activeRelation === "historic") {
           return {
             label: "Gateway done",
             tone: "done",
-            copy: "This gateway is finished."
+            copy: "This gateway has already been finished."
           };
         }
 
-        if (relation === "current") {
-          return uploadedCount === requiredCount
+        if (activeRelation === "current") {
+          return requiredDocumentsReady
             ? {
-                label: "Ready for review",
+                label: "Ready for PMO review",
                 tone: "ready",
-                copy: "All the needed files are in place."
+                copy: "All required files are ready."
               }
             : {
-                label: `${uploadedCount} of ${requiredCount} files ready`,
+                label: `${activeUploadedCount} of ${requiredDocuments.length} required files ready`,
                 tone: "working",
-                copy: "Finish the missing files before review."
+                copy: "Upload the missing required files."
               };
         }
 
-        if (relation === "next") {
+        if (activeRelation === "next") {
           return {
             label: "Next stage",
             tone: "next",
-            copy: "You can start these files early."
+            copy: "You can get ready early for this stage."
           };
         }
 
         return {
           label: "Later stage",
           tone: "future",
-          copy: "Nothing to do here yet."
+          copy: "Nothing needs to happen here yet."
         };
       };
 
-      const mockUploadDocument = (phaseKey, documentId) => {
-        setLifecycleRecord((current) => ({
-          ...current,
-          phases: current.phases.map((phase) => {
-            if (phase.key !== phaseKey) return phase;
+      const buildAuditEntry = (action, detail) => ({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        action,
+        detail,
+        createdAt: new Date().toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
+      });
 
-            return {
-              ...phase,
-              documents: phase.documents.map((document) => (
-                document.id !== documentId
-                  ? document
-                  : {
-                      ...document,
-                      uploaded: true,
-                      uploadedAt: "Mock upload complete",
-                      uploadedHref: buildMockSharePointHref(`${project.name} - ${document.title}.docx`, project.name, `${phase.label} uploaded file`)
-                    }
-              ))
-            };
-          })
-        }));
+      const persistLifecycleRecord = (nextRecord, projectUpdates = {}) => {
+        setLifecycleRecord(nextRecord);
+        onSaveLifecycleProject(project.id, {
+          lifecycleGovernance: nextRecord,
+          lifecycleCurrentPhase: nextRecord.currentPhase,
+          ...projectUpdates
+        });
       };
 
-      const activeReadiness = getReadinessState(activePhaseRecord);
-      const phaseGuidance = getPhaseGuidance(activeRelation);
+      const updateLifecyclePhase = (phaseKey, updater, projectUpdates = {}) => {
+        setLifecycleRecord((current) => {
+          if (!current) return current;
+          const nextRecord = {
+            ...current,
+            phases: current.phases.map((phase) => (phase.key === phaseKey ? updater(phase) : phase))
+          };
+          onSaveLifecycleProject(project.id, {
+            lifecycleGovernance: nextRecord,
+            lifecycleCurrentPhase: nextRecord.currentPhase,
+            ...projectUpdates
+          });
+          return nextRecord;
+        });
+      };
+
+      const mockUploadDocument = (phaseKey, documentId) => {
+        updateLifecyclePhase(phaseKey, (phase) => ({
+          ...phase,
+          documents: phase.documents.map((document) => (
+            document.id !== documentId
+              ? document
+              : {
+                  ...document,
+                  uploaded: true,
+                  uploadedAt: "Uploaded",
+                  uploadedHref: buildMockSharePointHref(document.uploadedFileName, project.name, `${phase.label} uploaded file`)
+                }
+          )),
+          auditTrail: [
+            buildAuditEntry("Document uploaded", `${phase.label}: ${phase.documents.find((document) => document.id === documentId)?.title || "Document"}`),
+            ...(phase.auditTrail || [])
+          ]
+        }));
+        setLifecycleNotice("Document uploaded.");
+      };
+
+      const addAdditionalDocument = (phaseKey) => {
+        updateLifecyclePhase(phaseKey, (phase) => {
+          const nextNumber = (phase.additionalDocuments?.length || 0) + 1;
+          const title = `Supporting document ${nextNumber}`;
+          const uploadedFileName = `${project.name} - ${phase.label} - ${title}.docx`;
+
+          return {
+            ...phase,
+            additionalDocuments: [
+              ...(phase.additionalDocuments || []),
+              {
+                id: `additional-${Date.now()}`,
+                title,
+                summary: "Extra supporting file",
+                uploadedAt: "Uploaded",
+                uploadedFileName,
+                uploadedHref: buildMockSharePointHref(uploadedFileName, project.name, `${phase.label} supporting document`)
+              }
+            ],
+            auditTrail: [
+              buildAuditEntry("Supporting document added", `${phase.label}: ${title}`),
+              ...(phase.auditTrail || [])
+            ]
+          };
+        });
+        setLifecycleNotice("Supporting document uploaded.");
+      };
+
+      const submitForGatewayReview = () => {
+        if (!canSubmitForGateway) return;
+        const notification = notifyPmoMailbox({
+          ...project,
+          projectNumber: project.projectNumber,
+          createdBy: project.createdBy || project.projectManager || currentUserProfile.name
+        });
+
+        updateLifecyclePhase(activePhaseRecord.key, (phase) => ({
+          ...phase,
+          reviewStatus: lifecycleReviewStatuses.submitted,
+          auditTrail: [
+            buildAuditEntry("Submitted for PMO review", `${notification.submittedBy} submitted ${phase.label} on ${notification.submittedAt}.`),
+            ...(phase.auditTrail || [])
+          ]
+        }), {
+          status: "Submitted for PMO review",
+          lifecycleReviewStatus: lifecycleReviewStatuses.submitted,
+          pmoNotifications: [notification, ...(project.pmoNotifications || [])],
+          currentPosition: `Submitted for PMO review on ${notification.submittedAt}.`
+        });
+
+        setLifecycleNotice(`Sent to PMO: ${notification.projectName} (${notification.projectNumber}).`);
+      };
+
+      const handlePmoOutcome = (outcome) => {
+        const nextPhase = lifecyclePhaseDefinitions[getLifecyclePhaseIndex(activePhaseRecord.key) + 1] || null;
+        const isClosureApproval = activePhaseRecord.key === "closure";
+        const nextLifecyclePhase = outcome === lifecycleReviewStatuses.approved
+          ? (isClosureApproval ? activePhaseRecord.key : (nextPhase?.key || activePhaseRecord.key))
+          : lifecycleRecord.currentPhase;
+        const nextStatus = outcome === lifecycleReviewStatuses.approved
+          ? (isClosureApproval ? "Completed" : nextPhase?.label || project.status)
+          : outcome === lifecycleReviewStatuses.onHold
+            ? "On hold"
+            : "Rejected";
+        const nextPosition = outcome === lifecycleReviewStatuses.approved
+          ? isClosureApproval
+            ? "PMO approved closure. The project is complete."
+            : `PMO approved this stage. The project can move into ${nextPhase?.label || activePhaseRecord.label}.`
+          : outcome === lifecycleReviewStatuses.onHold
+            ? "PMO has put this project on hold for now."
+            : "PMO rejected this review. More work is needed before it can be sent again.";
+
+        const nextRecord = {
+          ...lifecycleRecord,
+          currentPhase: nextLifecyclePhase,
+          phases: lifecycleRecord.phases.map((phase) => (
+            phase.key !== activePhaseRecord.key
+              ? phase
+              : {
+                  ...phase,
+                  reviewStatus: outcome,
+                  auditTrail: [
+                    buildAuditEntry("PMO review update", `${activePhaseRecord.label}: ${outcome}`),
+                    ...(phase.auditTrail || [])
+                  ]
+                }
+          ))
+        };
+
+        persistLifecycleRecord(nextRecord, {
+          status: nextStatus,
+          roadmapPhase: getRoadmapPhaseForLifecyclePhase(nextLifecyclePhase),
+          lifecycleReviewStatus: outcome,
+          lifecycleCurrentPhase: nextLifecyclePhase,
+          currentPosition: nextPosition
+        });
+        setActivePhase(nextLifecyclePhase);
+        setLifecycleNotice(`PMO marked this stage as ${outcome}.`);
+      };
+
+      const activeReadiness = getReadinessState();
 
       return (
         <Modal isOpen={!!project} onClose={onClose} titleId="lifecycleGovernanceTitle" panelClassName="modal-panel-fullscreen">
@@ -1357,17 +1593,28 @@
               <div>
                 <p className="eyebrow">Lifecycle governance</p>
                 <h2 id="lifecycleGovernanceTitle" className="detail-title">{project.name} lifecycle</h2>
-                <p className="section-copy lifecycle-intro">This page is only for lifecycle documents and gateway readiness. It stays separate from the normal project detail and monthly reporting update.</p>
+                <p className="section-copy lifecycle-objective"><strong>Project description:</strong> {projectObjective}</p>
               </div>
               <button className="icon-btn" type="button" aria-label="Close lifecycle governance" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
             </div>
+
+            <section className="detail-card lifecycle-stage-summary-card">
+              <div className="section-header-row">
+                <div className="section-title-row">
+                  <p className="section-title">Stage now</p>
+                </div>
+              </div>
+              <div className="lifecycle-stage-summary">
+                <strong>{getLifecyclePhaseLabel(lifecycleRecord.currentPhase)}</strong>
+                <span>{lifecyclePhaseDefinitions.find((phase) => phase.key === lifecycleRecord.currentPhase)?.gatewayLabel || "Current gateway"}</span>
+              </div>
+            </section>
 
             <section className="detail-card lifecycle-journey-card">
               <div className="section-header-row">
                 <div className="section-title-row">
                   <p className="section-title">Lifecycle flow</p>
                 </div>
-                <span className={`status-pill ${getStatusClass(getLifecyclePhaseLabel(lifecycleRecord.currentPhase))}`}>Current phase: {getLifecyclePhaseLabel(lifecycleRecord.currentPhase)}</span>
               </div>
 
               <div className="lifecycle-journey">
@@ -1390,7 +1637,7 @@
                       {index < lifecyclePhaseDefinitions.length - 1 && (
                         <div className={`lifecycle-gateway lifecycle-gateway-${index < currentPhaseIndex ? "passed" : index === currentPhaseIndex ? "current" : "upcoming"}`}>
                           <span className="lifecycle-gateway-diamond" aria-hidden="true"></span>
-                          <small>Gateway {index + 1}</small>
+                          <small>{phase.gatewayLabel}</small>
                         </div>
                       )}
                     </React.Fragment>
@@ -1401,47 +1648,30 @@
 
             <section className="detail-card">
               <div className="lifecycle-phase-main">
-                <section className="lifecycle-overview-card">
-                  <div className="lifecycle-phase-header">
-                    <div>
-                      <p className="eyebrow">{activePhaseRecord.label}</p>
-                      <h3>{phaseGuidance.heading}</h3>
-                      <p className="section-copy">{phaseGuidance.copy}</p>
-                    </div>
-                    <span className={`lifecycle-readiness-pill lifecycle-readiness-pill-${activeReadiness.tone}`}>{activeReadiness.label}</span>
-                  </div>
-                </section>
-
                 <div className="lifecycle-simple-grid">
                   <section className="lifecycle-side-card">
                     <p className="section-title">Gateway readiness</p>
                     <p className="section-copy">{activeReadiness.copy}</p>
                     <ul className="lifecycle-checklist">
-                      <li>Documents ready: {activeUploadedCount} of {activePhaseRecord.documents.length}</li>
                       <li>Gateway: {activePhaseRecord.gatewayLabel}</li>
+                      <li>Required files ready: {activeUploadedCount} of {requiredDocuments.length}</li>
                       {activePhaseRecord.readinessChecklist.map((item, index) => <li key={`${activePhaseRecord.key}-ready-${index}`}>{item}</li>)}
-                      {activeRelation === "current" && activeUploadedCount === activePhaseRecord.documents.length && <li>Next step: ask for gateway review.</li>}
-                      {activeRelation === "current" && activeUploadedCount !== activePhaseRecord.documents.length && <li>Next step: finish the missing files.</li>}
-                      {activeRelation === "historic" && <li>Next step: nothing to do here.</li>}
-                      {activeRelation === "next" && <li>Next step: start these files early.</li>}
                     </ul>
                   </section>
 
                   <section className="lifecycle-side-card">
                     <p className="section-title">What comes next</p>
                     <p className="section-copy">
-                      {nextPhaseRecord
-                        ? `${nextPhaseRecord.label} is next. You can get ready now.`
+                      {followingPhaseRecord
+                        ? `${followingPhaseRecord.label} comes after this stage.`
                         : "This is the last stage."}
                     </p>
                     <ul className="lifecycle-checklist">
-                      <li>Old stage files stay here for reference.</li>
-                      <li>Old files are read only after sign-off.</li>
-                      <li>Next stage templates are ready early.</li>
+                      {activePhaseRecord.nextSteps.map((item, index) => <li key={`${activePhaseRecord.key}-next-${index}`}>{item}</li>)}
                     </ul>
-                    {nextPhaseRecord && (
-                      <button className="secondary-btn lifecycle-next-btn" type="button" onClick={() => setActivePhase(nextPhaseRecord.key)}>
-                        Open {nextPhaseRecord.label}
+                    {followingPhaseRecord && (
+                      <button className="secondary-btn lifecycle-next-btn" type="button" onClick={() => setActivePhase(followingPhaseRecord.key)}>
+                        Open {followingPhaseRecord.label}
                       </button>
                     )}
                   </section>
@@ -1449,44 +1679,47 @@
 
                 <section className="lifecycle-document-panel">
                   <div className="section-header-row">
-                    <div className="section-title-row">
-                      <p className="section-title">Required documents</p>
+                    <div>
+                      <p className="section-title">Required / Optional Documents</p>
+                      <p className="section-copy lifecycle-document-hint">Required files have a red asterisk.</p>
+                    </div>
+                    <div className="section-actions">
+                      <button className="primary-btn lifecycle-submit-btn" type="button" disabled={!canSubmitForGateway} onClick={submitForGatewayReview}>
+                        Submit for PMO review
+                      </button>
                     </div>
                   </div>
 
+                  <div className="lifecycle-submit-note">
+                    {requiredDocumentsReady ? "All required files are ready." : "Upload every required file before you submit."}
+                  </div>
+                  {lifecycleNotice && <p className="lifecycle-inline-note">{lifecycleNotice}</p>}
+
                   <div className="lifecycle-document-grid">
-                    {activePhaseRecord.documents.map((document) => {
+                    {[...requiredDocuments, ...optionalDocuments].map((document) => {
                       const canMockUpload = !document.uploaded && (activeRelation === "current" || activeRelation === "next");
 
                       return (
                         <article className="lifecycle-document-card" key={`${activePhaseRecord.key}-${document.id}`}>
                           <div className="lifecycle-document-card-header">
                             <div>
-                              <p className="section-title">{document.title}</p>
-                              <span className="lifecycle-doc-helper">
-                                {document.readOnly
-                                  ? "Old file - read only"
-                                  : activeRelation === "next"
-                                    ? "Next stage file"
-                                    : "File in the mock SharePoint library"}
-                              </span>
+                              <p className="lifecycle-document-title">
+                                {document.title}
+                                {document.required !== false && <span className="lifecycle-required-star" aria-label="Required">*</span>}
+                              </p>
                             </div>
                             <span className={`lifecycle-upload-badge lifecycle-upload-badge-${document.uploaded ? "uploaded" : "missing"}`}>
-                              {document.uploaded ? document.uploadedAt : "Not uploaded yet"}
+                              {document.uploaded ? "Uploaded" : "Missing"}
                             </span>
                           </div>
 
                           <div className="lifecycle-document-links">
-                            <div>
-                              <span className="lifecycle-doc-label">Template</span>
-                              <a className="doc-link" href={document.templateHref} download={document.templateLabel}>{document.templateLabel}</a>
-                            </div>
-                            <div>
-                              <span className="lifecycle-doc-label">Uploaded file</span>
+                            <div className="lifecycle-document-link-row">
+                              <a className="doc-link" href={document.templateHref} download={document.templateLabel}>Download {document.title}</a>
                               {document.uploaded ? (
-                                <a className="doc-link" href={document.uploadedHref} download={document.uploadedFileName}>{document.uploadedFileName}</a>
+                                <a className="doc-link" href={document.uploadedHref} download={document.uploadedFileName}>View uploaded file</a>
                               ) : (
-                                <span className="lifecycle-doc-helper">No file yet</span>
+                                <span className="lifecycle-doc-helper">No file uploaded</span>
                               )}
                             </div>
                           </div>
@@ -1495,16 +1728,52 @@
                             {document.readOnly ? (
                               <span className="lifecycle-doc-helper">Locked after sign-off</span>
                             ) : canMockUpload ? (
-                              <button className="secondary-btn lifecycle-upload-btn" type="button" onClick={() => mockUploadDocument(activePhaseRecord.key, document.id)}>Mock upload</button>
+                              <button className="secondary-btn lifecycle-upload-btn" type="button" onClick={() => mockUploadDocument(activePhaseRecord.key, document.id)}>Upload file</button>
                             ) : (
-                              <span className="lifecycle-doc-helper">Template is ready early</span>
+                              <span className="lifecycle-doc-helper">Template ready to use</span>
                             )}
                           </div>
                         </article>
                       );
                     })}
                   </div>
+
+                  <div className="lifecycle-additional-documents">
+                    <div className="section-header-row">
+                      <div>
+                        <p className="section-title">Supporting documents</p>
+                        <p className="section-copy">Extra files for this stage.</p>
+                      </div>
+                      <button className="secondary-btn" type="button" onClick={() => addAdditionalDocument(activePhaseRecord.key)}>Upload supporting document</button>
+                    </div>
+                    {(activePhaseRecord.additionalDocuments || []).length ? (
+                      <div className="lifecycle-extra-doc-list">
+                        {activePhaseRecord.additionalDocuments.map((document) => (
+                          <a className="doc-link" href={document.uploadedHref} download={document.uploadedFileName} key={document.id}>{document.title}</a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="lifecycle-doc-helper">No supporting files yet.</p>
+                    )}
+                  </div>
                 </section>
+
+                {canReviewPmo && (
+                  <section className="lifecycle-review-panel">
+                    <div className="section-header-row">
+                      <div>
+                        <p className="section-title">PMO review</p>
+                        <p className="section-copy">Only PMO admins can use these controls.</p>
+                      </div>
+                      <span className={`lifecycle-review-status lifecycle-review-status-${reviewStatusClass}`}>{activePhaseRecord.reviewStatus}</span>
+                    </div>
+                    <div className="lifecycle-review-actions">
+                      <button className="secondary-btn" type="button" onClick={() => handlePmoOutcome(lifecycleReviewStatuses.approved)}>Approved</button>
+                      <button className="secondary-btn" type="button" onClick={() => handlePmoOutcome(lifecycleReviewStatuses.onHold)}>On Hold</button>
+                      <button className="secondary-btn" type="button" onClick={() => handlePmoOutcome(lifecycleReviewStatuses.rejected)}>Rejected</button>
+                    </div>
+                  </section>
+                )}
               </div>
             </section>
           </div>
@@ -2799,50 +3068,236 @@
     }
 
     function HelpView() {
+      const [openSection, setOpenSection] = useState("home");
+
+      const guideSections = [
+        { key: "home", title: "Find a project", subtitle: "Use Home to find the project you need." },
+        { key: "brief", title: "Start a new project", subtitle: "Use the new project brief form." },
+        { key: "details", title: "Check project details or update", subtitle: "Open the simple project summary view." },
+        { key: "lifecycle", title: "Do gateway work", subtitle: "Open the lifecycle and governance view." },
+        { key: "process", title: "Understand the process", subtitle: "See the end-to-end journey." }
+      ];
+
+      const renderGuideVisual = (sectionKey) => {
+        if (sectionKey === "home") {
+          return (
+            <div className="help-visual-frame help-visual-home">
+              <div className="help-visual-window-bar"></div>
+              <div className="help-visual-strip"></div>
+              <div className="help-visual-strip help-visual-strip-short"></div>
+              <div className="help-visual-project-row">
+                <div className="help-visual-project-title"></div>
+                <div className="help-visual-pill"></div>
+                <div className="help-visual-pill help-visual-pill-light"></div>
+              </div>
+              <div className="help-visual-project-row help-visual-project-row-faint">
+                <div className="help-visual-project-title"></div>
+                <div className="help-visual-pill"></div>
+                <div className="help-visual-pill help-visual-pill-light"></div>
+              </div>
+              <span className="help-marker help-marker-top">1</span>
+              <span className="help-marker help-marker-right">2</span>
+              <div className="help-callout help-callout-top">Use search and filters here</div>
+              <div className="help-callout help-callout-right">Open Details or Lifecycle here</div>
+            </div>
+          );
+        }
+
+        if (sectionKey === "details") {
+          return (
+            <div className="help-visual-frame help-visual-details">
+              <div className="help-visual-modal-title"></div>
+              <div className="help-visual-summary-grid">
+                <div className="help-visual-summary-card"></div>
+                <div className="help-visual-summary-card"></div>
+              </div>
+              <div className="help-visual-detail-block"></div>
+              <div className="help-visual-detail-block help-visual-detail-block-short"></div>
+              <span className="help-marker help-marker-left">1</span>
+              <div className="help-callout help-callout-left">Quick summary first</div>
+            </div>
+          );
+        }
+
+        if (sectionKey === "lifecycle") {
+          return (
+            <div className="help-visual-frame help-visual-lifecycle">
+              <div className="help-visual-flow">
+                <span className="help-visual-flow-step help-visual-flow-step-active">Initiation</span>
+                <span className="help-visual-flow-line"></span>
+                <span className="help-visual-flow-step">Planning</span>
+                <span className="help-visual-flow-line"></span>
+                <span className="help-visual-flow-step">Delivery</span>
+              </div>
+              <div className="help-visual-detail-block"></div>
+              <div className="help-visual-doc-card">
+                <div className="help-visual-doc-line"></div>
+                <div className="help-visual-doc-line help-visual-doc-line-short"></div>
+                <div className="help-visual-doc-actions">
+                  <div className="help-visual-btn"></div>
+                  <div className="help-visual-btn help-visual-btn-primary"></div>
+                </div>
+              </div>
+              <span className="help-marker help-marker-bottom">1</span>
+              <div className="help-callout help-callout-bottom">Get files ready, then submit for PMO review</div>
+            </div>
+          );
+        }
+
+        if (sectionKey === "brief") {
+          return (
+            <div className="help-visual-frame help-visual-brief">
+              <div className="help-visual-progress"></div>
+              <div className="help-visual-form-grid">
+                <div className="help-visual-field"></div>
+                <div className="help-visual-field"></div>
+                <div className="help-visual-field"></div>
+                <div className="help-visual-field"></div>
+              </div>
+              <div className="help-visual-textarea"></div>
+              <div className="help-visual-footer">
+                <div className="help-visual-ref"></div>
+                <div className="help-visual-btn-row">
+                  <div className="help-visual-btn"></div>
+                  <div className="help-visual-btn help-visual-btn-primary"></div>
+                </div>
+              </div>
+              <span className="help-marker help-marker-top">1</span>
+              <div className="help-callout help-callout-top">Fill in all question-mark fields to unlock submit</div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="help-visual-frame help-visual-process">
+            <div className="help-visual-process-step">Brief sent</div>
+            <div className="help-visual-process-arrow">↓</div>
+            <div className="help-visual-process-step">Home in Initiation</div>
+            <div className="help-visual-process-arrow">↓</div>
+            <div className="help-visual-process-step">Lifecycle documents</div>
+            <div className="help-visual-process-arrow">↓</div>
+            <div className="help-visual-process-step">PMO review</div>
+          </div>
+        );
+      };
+
+      const renderGuideCopy = (sectionKey) => {
+        if (sectionKey === "home") {
+          return (
+            <>
+              <p className="help-card-copy">Use Home when you want to find a project and decide what to do next.</p>
+              <ul className="help-list">
+                <li>You will first see the projects linked to you.</li>
+                <li>Use search and filters to narrow the list.</li>
+                <li>Use Clear filters if you want to see the wider portfolio.</li>
+                <li>When you find the right row, choose Details or Lifecycle.</li>
+              </ul>
+            </>
+          );
+        }
+
+        if (sectionKey === "details") {
+          return (
+            <>
+              <p className="help-card-copy">Use Details when you want a quick and simple project summary.</p>
+              <ul className="help-list">
+                <li>Click Details next to the project name.</li>
+                <li>Start with Snapshot for the quick view.</li>
+                <li>Then check Initiation information and status.</li>
+                <li>Use this view when you want the basics without the gateway work.</li>
+              </ul>
+            </>
+          );
+        }
+
+        if (sectionKey === "lifecycle") {
+          return (
+            <>
+              <p className="help-card-copy">Use Lifecycle when you need to do governance or gateway work.</p>
+              <ul className="help-list">
+                <li>Open Lifecycle to see the current stage.</li>
+                <li>Read Gateway readiness to see what is still missing.</li>
+                <li>Check What comes next so you can prepare early.</li>
+                <li>Upload the required files, save, and then submit for PMO review.</li>
+              </ul>
+            </>
+          );
+        }
+
+        if (sectionKey === "brief") {
+          return (
+            <>
+              <p className="help-card-copy">Use New project when the project does not exist yet.</p>
+              <ul className="help-list">
+                <li>Click New project in the top bar.</li>
+                <li>Fill in all fields marked with a question mark.</li>
+                <li>Watch the progress bar move as you complete the brief.</li>
+                <li>Save draft if you want to come back later, or submit when ready.</li>
+              </ul>
+            </>
+          );
+        }
+
+        return (
+          <>
+            <p className="help-card-copy">This is the full project journey in simple steps.</p>
+            <ul className="help-list">
+              <li>Start by filling in the new project brief.</li>
+              <li>After submission, the project appears on Home in Initiation.</li>
+              <li>Use Lifecycle to upload files and get ready for the gateway.</li>
+              <li>Submit for PMO review when the stage is ready.</li>
+              <li>PMO can then approve, hold, or reject the stage.</li>
+            </ul>
+          </>
+        );
+      };
+
       return (
         <>
           <section className="content-panel">
             <div className="section-header">
               <p className="section-title">Help</p>
-              <p className="section-copy">Simple guidance for each part of the portfolio app, written for non-technical users.</p>
+              <p className="section-copy">Simple help for non-technical users. Choose what you want to do and open that section.</p>
             </div>
-            <div className="help-page-grid">
-              <article className="help-page-card" id="portfolio-home-help">
-                <h3>Portfolio home</h3>
-                <ul className="help-list">
-                  <li>Use the search and filters to quickly find a project by name, status, department, sponsor, or manager.</li>
-                  <li>Select any project row to open the full project summary, updates, and health view.</li>
-                  <li>Use the New project button in the top bar when you want to start a fresh intake.</li>
-                </ul>
-              </article>
+            <section className="help-start-card">
+              <p className="help-start-label">Start here</p>
+              <h3>What do you want to do?</h3>
+              <p>Pick one option below. The page will then show the guidance for that task.</p>
+            </section>
 
-              <article className="help-page-card" id="my-projects-help">
-                <h3>My projects</h3>
-                <ul className="help-list">
-                  <li>This view shows the projects linked to you as a manager, sponsor, or owner of a draft.</li>
-                  <li>If a project is still a draft, use Resume form to continue from where you left off.</li>
-                  <li>If the project has been submitted, open it to check its current status and submitted documents.</li>
-                </ul>
-              </article>
+            <section className="help-task-grid">
+              {guideSections.map((section) => (
+                <button
+                  key={section.key}
+                  className={`help-task-card ${openSection === section.key ? "help-task-card-active" : ""}`}
+                  type="button"
+                  onClick={() => setOpenSection(section.key)}
+                >
+                  <strong>{section.title}</strong>
+                  <span>{section.subtitle}</span>
+                </button>
+              ))}
+            </section>
 
-              <article className="help-page-card" id="roadmap-help">
-                <h3>Roadmap and portfolio view</h3>
-                <ul className="help-list">
-                  <li>The roadmap shows where each project sits across discovery, planning, delivery, and closure.</li>
-                  <li>Use the filters to narrow the timeline to one department, manager, sponsor, or status.</li>
-                  <li>Use Portfolio view to see every project on one timeline at a higher level.</li>
-                </ul>
-              </article>
+            <section className="help-detail-panel">
+              <div className="help-detail-header">
+                <div>
+                  <p className="help-start-label">Selected help topic</p>
+                  <h3>{guideSections.find((section) => section.key === openSection)?.title || "Help topic"}</h3>
+                  <p>{guideSections.find((section) => section.key === openSection)?.subtitle || "Choose a topic above."}</p>
+                </div>
+              </div>
 
-              <article className="help-page-card" id="reports-help">
-                <h3>Reports</h3>
-                <ul className="help-list">
-                  <li>Use the Governance tab when you want a PMO view of delivery health, actions, deadlines, and escalation points.</li>
-                  <li>Use the Stakeholder tab when sponsors or senior leadership need a simpler PMO portfolio summary and an expandable one-page project update.</li>
-                  <li>Use Clear filters if either tab becomes too narrow and you want to return to the full view.</li>
-                </ul>
-              </article>
-            </div>
+              <div className="help-detail-layout">
+                <div className="help-screenshot-area">
+                  <p className="help-screenshot-label">Screenshot area</p>
+                  {renderGuideVisual(openSection)}
+                </div>
+                <div className="help-detail-copy">
+                  {renderGuideCopy(openSection)}
+                </div>
+              </div>
+            </section>
           </section>
         </>
       );
@@ -2939,7 +3394,7 @@
       const [selectedLifecycleProject, setSelectedLifecycleProject] = useState(null);
       const [selectedPersonName, setSelectedPersonName] = useState("");
       const [isNavOpen, setIsNavOpen] = useState(false);
-      const [activeNavKey] = useState(pageKey === "portfolio" ? initialPortfolioView : pageKey);
+      const [activeNavKey] = useState(pageKey === "portfolio" ? "portfolio-home" : pageKey);
       const [editingDraftId, setEditingDraftId] = useState(storedDraftState.editingDraftId);
       const [formValues, setFormValues] = useState(storedDraftState.formValues);
       const [search, setSearch] = useState("");
@@ -2947,6 +3402,7 @@
       const [departmentFilter, setDepartmentFilter] = useState("All departments");
       const [pmFilter, setPmFilter] = useState("All PMs");
       const [sponsorFilter, setSponsorFilter] = useState("All sponsors");
+      const [showHomepageInvolvedOnly, setShowHomepageInvolvedOnly] = useState(pageKey === "portfolio");
       const [roadmapScale, setRoadmapScale] = useState(storedSettings.defaultRoadmapView);
       const [showDraftProjects, setShowDraftProjects] = useState(storedSettings.showDraftProjects);
       const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
@@ -3021,9 +3477,17 @@
         return () => window.removeEventListener("scroll", onScroll);
       }, []);
 
-      const assessment = useMemo(() => (isComplete(formValues) ? assess(formValues) : null), [formValues]);
+      const assessment = useMemo(() => (isComplete(formValues) ? assess(buildAssessmentInput(formValues)) : null), [formValues]);
       const intakeProgress = useMemo(() => getFormCompletion(formValues), [formValues]);
       const scoreBreakdown = useMemo(() => buildScoreBreakdown(formValues), [formValues]);
+      const projectReferencePreview = useMemo(() => (
+        formValues.department
+          ? getNextProjectNumber(
+            projects.filter((project) => project.id !== editingDraftId),
+            formValues.department
+          )
+          : `${getDepartmentPrefix("")}000000`
+      ), [projects, editingDraftId, formValues.department]);
       const liveScore = scoreBreakdown.reduce((total, item) => total + item.score, 0);
       const displayedScore = assessment ? assessment.score : liveScore;
       const displayedScoreOutOf = assessment ? assessment.scoreOutOf : 100;
@@ -3045,6 +3509,7 @@
       const canViewProject = (project) => project.status !== "Draft" || currentUserProfile.isAdmin || project.createdBy === currentUserProfile.name;
       const isAssignedToCurrentUser = (project) => [project.projectManager, project.primarySponsor, project.createdBy].includes(currentUserProfile.name);
       const canResumeProject = (project) => project.status === "Draft" && !isSubmittedWorkflowProject(project) && (currentUserProfile.isAdmin || project.createdBy === currentUserProfile.name);
+      const isHomepagePersonalView = pageKey === "portfolio" && showHomepageInvolvedOnly;
 
       const accessibleProjects = useMemo(() => projects.filter((project) => canViewProject(project)), [projects]);
 
@@ -3055,9 +3520,11 @@
         const matchesDepartment = departmentFilter === "All departments" || project.department === departmentFilter;
         const matchesPm = pmFilter === "All PMs" || project.projectManager === pmFilter;
         const matchesSponsor = sponsorFilter === "All sponsors" || project.primarySponsor === sponsorFilter;
-        const matchesView = activeNavKey !== "my-projects" || isAssignedToCurrentUser(project);
+        const matchesView = isHomepagePersonalView
+          ? isAssignedToCurrentUser(project)
+          : true;
         return matchesSearch && matchesStatus && matchesDepartment && matchesPm && matchesSponsor && matchesView;
-      }), [accessibleProjects, activeNavKey, search, statusFilter, departmentFilter, pmFilter, sponsorFilter]);
+      }), [accessibleProjects, isHomepagePersonalView, search, statusFilter, departmentFilter, pmFilter, sponsorFilter]);
 
       const portfolioVisibleProjects = useMemo(() => filteredProjects.filter((project) => showDraftProjects || project.status !== "Draft"), [filteredProjects, showDraftProjects]);
 
@@ -3089,7 +3556,7 @@
       const isReportsView = pageKey === "reports";
       const isSettingsView = pageKey === "settings";
       const isHelpView = pageKey === "help";
-      const isMyProjectsView = isPortfolioPage && activeNavKey === "my-projects";
+      const isPortfolioHomeView = isPortfolioPage;
       const pageTitle = isRoadmapView
         ? "Roadmap"
         : isReportsView
@@ -3098,20 +3565,20 @@
             ? "Settings"
             : isHelpView
               ? "Help"
-              : isMyProjectsView
-                ? "My projects"
-                : "Project portfolio";
-      const pageSectionTitle = isMyProjectsView ? "My Projects" : "Portfolio Home";
-      const pageSectionCopy = isMyProjectsView
-        ? "Projects where you are the manager, sponsor, or draft owner."
-        : "All visible projects across the portfolio.";
-      const portfolioIntro = "This is where all MKS projects live. Browse the portfolio, track progress, and submit new projects.";
+              : "Project portfolio";
+      const pageSectionTitle = "Portfolio Home";
+      const pageSectionCopy = isHomepagePersonalView
+          ? "Showing the projects you are involved in. Clear filters to see all visible projects."
+          : "All visible projects across the portfolio.";
+      const portfolioIntro = isHomepagePersonalView
+        ? "This home view starts with the projects linked to you as the submitter, sponsor, or project manager."
+        : "This is where all MKS projects live. Browse the portfolio, track progress, and submit new projects.";
       const pageCountBadge = isRoadmapView
         ? `${reportProjects.length} roadmap projects`
         : isReportsView
           ? `${reportProjects.length} reportable projects`
           : isHelpView
-            ? "4 guidance sections"
+            ? "5 quick steps"
           : isSettingsView
             ? `${Object.keys(documentTemplates).length} template controls`
             : `${portfolioVisibleProjects.length} projects`;
@@ -3174,36 +3641,23 @@
           return;
         }
 
-        const savedAssessment = isComplete(formValues) ? assess(formValues) : null;
-        const budgetLabel = intakeOptions.budgetBands.find((item) => item.value === formValues.budgetBand)?.label || "To be confirmed";
         const draftId = editingDraftId || `draft-${Date.now()}`;
-        const draftProject = {
-          id: draftId,
-          name: formValues.projectName || "Untitled draft",
+        const existingDraft = projects.find((project) => project.id === editingDraftId);
+        const draftProject = buildProjectFromBrief(formValues, {
+          projectId: draftId,
+          projectList: projects.filter((project) => project.id !== draftId),
+          projectNumber: "",
+          createdBy: existingDraft?.createdBy || currentUserProfile.name,
+          createdByEmail: existingDraft?.createdByEmail || currentUserProfile.email || "",
           status: "Draft",
-          tshirtSize: savedAssessment ? savedAssessment.tshirtSize : "TBC",
           completionPercentage: getFormCompletion(formValues),
-          projectManager: formValues.projectManager || "To be confirmed",
-          primarySponsor: formValues.primarySponsor || "To be confirmed",
-          department: formValues.department || "To be confirmed",
-          projectType: formValues.audienceType === "client" ? "Client-facing initiative" : formValues.audienceType === "internal" ? "Internal initiative" : "Draft project",
-          strategicPillar: formValues.strategicPillar || "To be confirmed",
-          budget: budgetLabel,
-          overallScore: savedAssessment ? savedAssessment.score : 0,
           currentRisk: "Draft - awaiting submission",
-          whatHappenedLastMonth: "Draft saved and ready to be completed.",
-          currentPosition: "The intake form has been started but not yet submitted.",
-          next30DaysPipeline: "Complete the remaining fields, upload the required documents, and submit the application.",
-          steeringDecisionNeeded: "No steering decision is needed until the draft has been completed and submitted.",
-          businessObjective: formValues.oneLineJustification || "Business objective still being captured.",
-          projectHealthChartData: buildRadarDefaults(savedAssessment ? savedAssessment.score : 20),
-          projectHealthTriangleData: null,
-          healthCheckReportUrl: "",
-          createdBy: editingDraftId
-            ? projects.find((project) => project.id === editingDraftId)?.createdBy || currentUserProfile.name
-            : currentUserProfile.name,
+          currentPosition: "The new project brief has been started but is not finished yet.",
+          next30DaysPipeline: "Finish the missing fields and then submit the application.",
+          steeringDecisionNeeded: "No decision needed yet.",
+          whatHappenedLastMonth: "Draft saved and ready to finish.",
           draftFormValues: normaliseFormValues(formValues)
-        };
+        });
 
         setProjects((current) => [draftProject, ...current.filter((project) => project.id !== draftProject.id)]);
         setEditingDraftId(draftId);
@@ -3217,6 +3671,9 @@
         setDepartmentFilter("All departments");
         setPmFilter("All PMs");
         setSponsorFilter("All sponsors");
+        if (isPortfolioHomeView) {
+          setShowHomepageInvolvedOnly(false);
+        }
       };
 
       const buildRadarDefaults = (score) => {
@@ -3287,20 +3744,18 @@
 
       const resumeDraftProject = (project) => {
         const storedDraftState = getStoredDraftState();
-        const budgetBand = intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "";
         const fallbackValues = project.draftFormValues || normaliseFormValues({
           projectName: project.name,
-          projectManager: project.projectManager,
           primarySponsor: project.primarySponsor,
+          startDate: project.startDate || "",
+          targetEndDate: project.targetEndDate || "",
           strategicPillar: project.strategicPillar,
           department: project.department !== "To be confirmed" ? project.department : "",
-          budgetBand,
-          deliveryTimeline: "",
-          impactedTeams: "",
-          clientSensitiveData: "",
-          audienceType: project.projectType === "Client-facing initiative" ? "client" : project.projectType === "Internal initiative" ? "internal" : "",
-          strategicImportance: "",
-          oneLineJustification: project.businessObjective !== "Business objective still being captured." ? project.businessObjective : ""
+          budgetBand: intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "",
+          clientSensitiveData: project.clientSensitiveDataLabel === "Yes" ? "yes" : project.clientSensitiveDataLabel === "No" ? "no" : "",
+          audienceType: project.projectType === "Client-facing initiative" ? "client" : project.projectType === "Internal initiative" ? "internal" : project.projectType === "Hybrid initiative" ? "hybrid" : "",
+          strategicImportance: intakeOptions.strategicImportance.find((item) => item.label === project.strategicPriorityLabel)?.value || "",
+          projectDescription: project.businessObjective !== "Business objective still being captured." ? project.businessObjective : ""
         });
         const resumeValues = storedDraftState.editingDraftId === project.id ? storedDraftState.formValues : fallbackValues;
 
@@ -3314,6 +3769,14 @@
 
       const saveProjectEdits = (projectId, updates) => {
         setProjects((current) => current.map((project) => project.id === projectId ? hydrateProject({ ...project, ...updates }) : project));
+        setSelectedProject((current) => current && current.id === projectId ? hydrateProject({ ...current, ...updates }) : current);
+      };
+
+      const saveLifecycleProject = (projectId, updates) => {
+        setProjects((current) => current.map((project) => (
+          project.id === projectId ? hydrateProject({ ...project, ...updates }) : project
+        )));
+        setSelectedLifecycleProject((current) => current && current.id === projectId ? hydrateProject({ ...current, ...updates }) : current);
         setSelectedProject((current) => current && current.id === projectId ? hydrateProject({ ...current, ...updates }) : current);
       };
 
@@ -3335,61 +3798,22 @@
           return;
         }
 
-        const requiredDocuments = assessment.requiredDocuments || [];
-        const documentReview = reviewRequiredDocuments(requiredDocuments, uploadedDocuments);
-        if (documentReview.hasIssues) {
-          setSubmissionReview({
-            type: "error",
-            title: "A few documents still need more detail",
-            message: "Please update the highlighted documents, upload the revised versions, and then resubmit the application.",
-            messagesByDocument: documentReview.messagesByDocument
-          });
-          return;
-        }
-
-        const budgetLabel = intakeOptions.budgetBands.find((item) => item.value === formValues.budgetBand)?.label || "";
         const projectId = editingDraftId || `project-${Date.now()}`;
         const existingDraft = projects.find((project) => project.id === editingDraftId);
-        const submittedStatus = "Submitted";
-        const submittedTimeline = getSubmittedTimeline(formValues);
-        const uploadedAt = new Date().toLocaleDateString("en-GB");
-        const submittedDocuments = buildSubmittedDocumentsFromValues(formValues, uploadedDocuments, assessment, formValues.projectName).map((document) => ({
-          ...document,
-          uploadedAt
-        }));
-        const project = {
-          id: projectId,
-          name: formValues.projectName,
-          status: submittedStatus,
-          tshirtSize: assessment.tshirtSize,
-          completionPercentage: 0,
-          projectManager: formValues.projectManager || "To be confirmed",
-          primarySponsor: formValues.primarySponsor,
-          department: formValues.department,
-          projectType: formValues.audienceType === "client" ? "Client-facing initiative" : "Internal initiative",
-          strategicPillar: formValues.strategicPillar,
-          budget: budgetLabel,
-          overallScore: assessment.score,
-          currentRisk: "Submitted - pending review",
-          roadmapPhase: "submitted",
-          currentPhaseProgress: 0,
-          whatHappenedLastMonth: "The project brief and supporting documents were submitted into the intake workflow.",
-          currentPosition: `Submitted and waiting for PMO and ${formValues.department} leadership review before the next decision board.`,
-          next30DaysPipeline: "Complete the PMO and department review, confirm whether any clarifications are needed, and take the proposal to the next decision board.",
-          steeringDecisionNeeded: "A decision board outcome is needed to confirm whether the project is approved to move forward or sent back for more detail.",
-          businessObjective: formValues.oneLineJustification,
-          projectHealthChartData: buildRadarDefaults(assessment.score),
-          projectHealthTriangleData: buildTriangleFromIndicators({
-            overallScore: assessment.score,
-            status: submittedStatus,
-            currentRisk: "Submitted - pending review"
-          }),
-          healthCheckReportUrl: "",
+        const project = buildProjectFromBrief(formValues, {
+          projectId,
+          projectList: projects.filter((item) => item.id !== projectId),
+          projectNumber: getNextProjectNumber(projects.filter((item) => item.id !== projectId), formValues.department),
           createdBy: existingDraft?.createdBy || currentUserProfile.name,
-          draftFormValues: null,
-          submittedDocuments,
-          ...submittedTimeline
-        };
+          createdByEmail: existingDraft?.createdByEmail || currentUserProfile.email || "",
+          status: "Submitted",
+          completionPercentage: 0,
+          currentRisk: "Submitted - waiting for initiation work",
+          currentPosition: `This project is now in initiation. The team can start the gateway 1 documents.`,
+          next30DaysPipeline: "Complete the initiation documents and get ready for gateway 1 review.",
+          steeringDecisionNeeded: "No decision needed yet.",
+          whatHappenedLastMonth: "The new project brief was submitted."
+        });
 
         setProjects((current) => [
           project,
@@ -3398,24 +3822,18 @@
             && !(item.status === "Draft" && normaliseProjectName(item.name) === normaliseProjectName(project.name))
           ))
         ]);
+        setSelectedProject(null);
+        setSelectedLifecycleProject(null);
         resetDraftState();
         setUploadedDocuments({});
-        setSubmissionReview({
-          type: "success",
-          title: "Thank you. Your project brief has been submitted.",
-          message: `This has been sent to the PMO and the head of ${formValues.department}. They will review it and it will be discussed at the next project decision board.`
-        });
+        setSubmissionReview(null);
+        setDraftMessage("");
+        setIsIntakeExitPromptOpen(false);
+        setIsIntakeOpen(false);
       };
 
       const openProject = (project) => setSelectedProject(project);
       const openLifecycleProject = (project) => setSelectedLifecycleProject(project);
-
-      const onProjectRowKeyDown = (event, project) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          openProject(project);
-        }
-      };
 
       return (
         <>
@@ -3546,20 +3964,22 @@
                                 const displayStatus = getLifecycleDisplayStatus(project);
 
                                 return (
-                                  <tr key={project.id} className="clickable-row" tabIndex={0} onClick={() => openProject(project)} onKeyDown={(event) => onProjectRowKeyDown(event, project)}>
+                                  <tr key={project.id} className="project-table-row">
                                     <td>
                                       <div className="project-main-row">
                                         <div className="project-main">{project.name}</div>
                                         <div className="project-entry-actions">
                                           <button className="project-entry-btn" type="button" onClick={(event) => { event.stopPropagation(); openProject(project); }}>Details</button>
-                                          <button className="project-entry-btn project-entry-btn-lifecycle" type="button" onClick={(event) => { event.stopPropagation(); openLifecycleProject(project); }}>Lifecycle</button>
+                                          {canAccessLifecycleProject(project) && (
+                                            <button className="project-entry-btn project-entry-btn-lifecycle" type="button" onClick={(event) => { event.stopPropagation(); openLifecycleProject(project); }}>Lifecycle</button>
+                                          )}
                                         </div>
                                       </div>
                                       <div className="project-sub">{project.projectType} · Phase: {displayStatus.label}</div>
                                     </td>
                                     <td><span className={`status-pill ${getStatusClass(displayStatus.label)}`}>{displayStatus.label}</span></td>
-                                    <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.projectManager); }}>{project.projectManager}</button></td>
-                                    <td><button className="profile-link table-profile-link" type="button" onClick={(event) => { event.stopPropagation(); openProfile(project.primarySponsor); }}>{project.primarySponsor}</button></td>
+                                    <td><span className="table-person-name">{project.projectManager}</span></td>
+                                    <td><span className="table-person-name">{project.primarySponsor}</span></td>
                                     <td>{project.department}</td>
                                     <td><div className="size-cell"><span className="size-badge">{project.tshirtSize}</span><span className="size-caption">{getTshirtSizeHint(project.tshirtSize)}</span></div></td>
                                     <td><div className="progress-wrap"><div className="progress-track"><div className={`progress-bar ${getProgressClass(displayStatus.label)}`} style={{ width: `${project.completionPercentage}%` }}></div></div><span className="progress-value">{project.completionPercentage}%</span></div></td>
@@ -3577,27 +3997,17 @@
             </main>
           </div>
 
-          <Modal isOpen={isIntakeOpen} onClose={closeIntakeModal} titleId="projectIntakeTitle">
+          <Modal isOpen={isIntakeOpen} onClose={closeIntakeModal} titleId="projectIntakeTitle" panelClassName="project-brief-panel">
             <div className="modal-header">
               <div>
-                <p className="eyebrow">{editingDraftId ? "Resume project brief" : "New project brief"}</p>
-                <h3 id="projectIntakeTitle">{editingDraftId ? "Resume project brief" : "New project brief"}</h3>
-                <p className="project-brief-copy">Fields marked * are required to unlock submission.</p>
+                <p className="eyebrow">Project intake form</p>
+                <h3 id="projectIntakeTitle">New project brief</h3>
+                <p className="project-brief-copy">Fields marked ? are required to unlock submission.</p>
               </div>
               <button className="icon-btn" type="button" aria-label="Close intake form" onClick={closeIntakeModal}><Icon icon="close" className="icon-only-svg" /></button>
             </div>
 
-            {submissionReview?.type === "success" ? (
-              <div className="submission-review-panel submission-review-success">
-                <p className="eyebrow">Submission complete</p>
-                <h4>{submissionReview.title}</h4>
-                <p>{submissionReview.message}</p>
-                <div className="form-actions">
-                  <button className="primary-btn" type="button" onClick={closeIntakeModal}>Close</button>
-                </div>
-              </div>
-            ) : (
-            <form className="project-form" onSubmit={submitProject}>
+            <form className="project-form project-brief-form" onSubmit={submitProject}>
               <section className="form-progress-card">
                 <div className="form-progress-header">
                   <strong>Brief completion</strong>
@@ -3611,104 +4021,50 @@
               <div className="form-grid">
                 <label>
                   <FormFieldLabel title="Project Name" required />
-                  <input type="text" name="projectName" value={formValues.projectName} onChange={onChange} required placeholder="Use a short, clear name people will recognise later" />
+                  <input type="text" name="projectName" value={formValues.projectName} onChange={onChange} required placeholder="Use a short, clear name" />
                 </label>
                 <label>
                   <FormFieldLabel title="Primary Sponsor" required />
-                  <input type="text" name="primarySponsor" value={formValues.primarySponsor} onChange={onChange} required placeholder="Add the sponsor who is backing this project" />
+                  <input type="text" name="primarySponsor" value={formValues.primarySponsor} onChange={onChange} required placeholder="Who is sponsoring this project?" />
+                </label>
+                <label>
+                  <FormFieldLabel title="Start Date" required />
+                  <input type="date" name="startDate" value={formValues.startDate} onChange={onChange} required />
+                </label>
+                <label>
+                  <FormFieldLabel title="Target End Date" required />
+                  <input type="date" name="targetEndDate" value={formValues.targetEndDate} onChange={onChange} required />
                 </label>
                 <label>
                   <FormFieldLabel title="Strategic Pillar" required />
-                  <select className={!formValues.strategicPillar ? "is-placeholder" : ""} name="strategicPillar" value={formValues.strategicPillar} onChange={onChange} required><option value="" disabled hidden>Choose the firm priority this work supports most</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+                  <select className={!formValues.strategicPillar ? "is-placeholder" : ""} name="strategicPillar" value={formValues.strategicPillar} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Department" required />
-                  <select className={!formValues.department ? "is-placeholder" : ""} name="department" value={formValues.department} onChange={onChange} required><option value="" disabled hidden>Choose the main area that owns or benefits from the project</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+                  <select className={!formValues.department ? "is-placeholder" : ""} name="department" value={formValues.department} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Estimated Budget" required driver />
-                  <select className={!formValues.budgetBand ? "is-placeholder" : ""} name="budgetBand" value={formValues.budgetBand} onChange={onChange} required><option value="" disabled hidden>Pick the closest budget range for the expected spend</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-                </label>
-                <label>
-                  <FormFieldLabel title="Delivery Timeline" required driver />
-                  <select className={!formValues.deliveryTimeline ? "is-placeholder" : ""} name="deliveryTimeline" value={formValues.deliveryTimeline} onChange={onChange} required><option value="" disabled hidden>Choose how long you think delivery is likely to take</option>{intakeOptions.deliveryTimeline.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-                </label>
-                <label>
-                  <FormFieldLabel title="Impacted Teams" required driver />
-                  <select className={!formValues.impactedTeams ? "is-placeholder" : ""} name="impactedTeams" value={formValues.impactedTeams} onChange={onChange} required><option value="" disabled hidden>Tell us how many teams will be affected by the change</option>{intakeOptions.impactedTeams.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.budgetBand ? "is-placeholder" : ""} name="budgetBand" value={formValues.budgetBand} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Client Sensitive Data" required driver />
-                  <select className={!formValues.clientSensitiveData ? "is-placeholder" : ""} name="clientSensitiveData" value={formValues.clientSensitiveData} onChange={onChange} required><option value="" disabled hidden>Choose yes if the work will use client or personal data</option><option value="no">No</option><option value="yes">Yes</option></select>
+                  <select className={!formValues.clientSensitiveData ? "is-placeholder" : ""} name="clientSensitiveData" value={formValues.clientSensitiveData} onChange={onChange} required><option value="" disabled hidden>Choose one</option><option value="no">No</option><option value="yes">Yes</option></select>
                 </label>
                 <label>
                   <FormFieldLabel title="Audience Type" required driver />
-                  <select className={!formValues.audienceType ? "is-placeholder" : ""} name="audienceType" value={formValues.audienceType} onChange={onChange} required><option value="" disabled hidden>Choose whether the outcome is internal, client-facing, or both</option>{intakeOptions.audienceType.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.audienceType ? "is-placeholder" : ""} name="audienceType" value={formValues.audienceType} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.audienceType.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
                   <FormFieldLabel title="Strategic Priority" required driver />
-                  <select className={!formValues.strategicImportance ? "is-placeholder" : ""} name="strategicImportance" value={formValues.strategicImportance} onChange={onChange} required><option value="" disabled hidden>Choose how important this project is to the firm right now</option>{intakeOptions.strategicImportance.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <select className={!formValues.strategicImportance ? "is-placeholder" : ""} name="strategicImportance" value={formValues.strategicImportance} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.strategicImportance.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
               </div>
 
-              <label className="full-width"><FormFieldLabel title="One-line Justification" required /><textarea name="oneLineJustification" rows="3" value={formValues.oneLineJustification} onChange={onChange} required placeholder="Summarise the business objective and the outcome you expect"></textarea></label>
-
-              {assessment && <section className="intake-score-panel">
-                <div className="intake-score-header">
-                  <div>
-                    <p className="eyebrow">Project size and overall score</p>
-                    <p className="intake-score-copy">Based on budget, timeline, sensitive data, impacted teams, audience, and strategic priority for {formValues.strategicPillar || "the selected strategic pillar"}.</p>
-                  </div>
-                  <span className="project-size-pill">{displayedProjectSize}</span>
-                </div>
-
-                <div className="intake-score-breakdown">
-                  {scoreBreakdown.map((item) => (
-                    <div className="intake-score-row" key={item.key}>
-                      <span>{item.label}</span>
-                      <div className="intake-score-line">
-                        <div className="intake-score-line-fill" style={{ width: `${item.percent}%` }}></div>
-                      </div>
-                      <strong>{item.score}</strong>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="intake-score-footer">
-                  <span>Overall score</span>
-                  <strong>{displayedScore}/{displayedScoreOutOf}</strong>
-                </div>
-
-                <p className="intake-score-note"><strong>What does this score mean?</strong> {assessment ? assessment.explanation : "Keep filling the required fields to lock the final score and routing."}</p>
-              </section>}
-
-              {assessment && <section className="guidance-panel">
-                <div><p className="eyebrow">Required Documents</p><h4>Download, complete, and attach each required document</h4></div>
-                <div className="document-grid">
-                  {(assessment ? assessment.requiredDocuments : []).map((doc) => (
-                    <div className="document-item" key={doc}>
-                      <div className="document-summary">
-                        <div className="document-icon-badge"><Icon icon="doc" className="document-icon-svg" /></div>
-                        <div className="document-meta">
-                          <strong>{doc}</strong>
-                          <span className="document-template-type">Microsoft Word template (.docx)</span>
-                          <span className="document-template-note">{documentTemplates[doc]?.note || "Required for this route."}</span>
-                        </div>
-                      </div>
-                      <div className="document-actions">
-                        <a className="doc-link" href={documentTemplates[doc]?.file} download>Download sample</a>
-                        <input className="file-input" type="file" aria-label={`Attach ${doc}`} accept=".doc,.docx" onChange={(event) => onDocumentUpload(doc, event.target.files)} />
-                      </div>
-                      {uploadedDocuments[doc] && <p className="document-uploaded-note">{uploadedDocuments[doc].name}</p>}
-                      {submissionReview?.type === "error" && submissionReview.messagesByDocument?.[doc] && (
-                        <div className="document-review-errors">
-                          {submissionReview.messagesByDocument[doc].map((message, index) => <p key={`${doc}-review-${index}`}>{message}</p>)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>}
+              <label className="full-width">
+                <FormFieldLabel title="Project Description" required />
+                <textarea name="projectDescription" rows="5" value={formValues.projectDescription} onChange={onChange} required placeholder="What is this project, why do we need it, and what should it achieve?"></textarea>
+              </label>
 
               {submissionReview?.type === "error" && (
                 <div className="submission-review-panel">
@@ -3719,12 +4075,17 @@
 
               {draftMessage && <p className="form-note">{draftMessage}</p>}
 
-              <div className="form-actions">
+              <div className="project-brief-footer">
+                <div className="project-reference">
+                  <span>Project reference</span>
+                  <strong>{projectReferencePreview}</strong>
+                </div>
+                <div className="form-actions">
                 <button className="secondary-btn" type="button" onClick={saveDraft}>{editingDraftId ? "Update draft" : "Save draft"}</button>
-                <button className="primary-btn" type="submit">Submit application</button>
+                <button className="primary-btn" type="submit" disabled={!isComplete(formValues)}>Submit Application</button>
+                </div>
               </div>
             </form>
-            )}
           </Modal>
 
           <Modal isOpen={isIntakeExitPromptOpen} onClose={() => setIsIntakeExitPromptOpen(false)} titleId="intakeExitPromptTitle">
@@ -3748,8 +4109,8 @@
             </div>
           </Modal>
 
-          {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} canEditProject={currentUserProfile.isAdmin} onSaveProjectEdits={saveProjectEdits} onOpenProfile={openProfile} />}
-          {isPortfolioPage && <LifecycleGovernanceModal project={selectedLifecycleProject} onClose={() => setSelectedLifecycleProject(null)} />}
+          {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} />}
+          {isPortfolioPage && <LifecycleGovernanceModal project={selectedLifecycleProject} onClose={() => setSelectedLifecycleProject(null)} onSaveLifecycleProject={saveLifecycleProject} canReviewPmo={isPmoAdminUser()} />}
           {isPortfolioPage && <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />}
           {showBackToTop && <button className="back-to-top-btn" type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Back to top</button>}
         </>
@@ -3771,6 +4132,39 @@
       }
       throw error;
     }
+  
+
+
+  
+
+
+  
+
+
+  
+
+
+  
+
+
+  
+
+
+  
+
+
+  
+
+
+  
+
+
+  
+
+
+  
+
+
   
 
 
