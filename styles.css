@@ -1638,7 +1638,7 @@ label span { font-size: 0.9rem; font-weight: 700; color: #28455e; }
 .field-label-text {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 .field-driver-inline {
@@ -1650,11 +1650,56 @@ label span { font-size: 0.9rem; font-weight: 700; color: #28455e; }
   color: #cf3341;
   font-weight: 800;
 }
-.field-helper-copy {
+.field-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #7a91a7;
-  font-size: 0.79rem;
-  font-weight: 500;
+  cursor: help;
+  outline: none;
+}
+.field-help-icon {
+  width: 14px;
+  height: 14px;
+}
+.field-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 12;
+  width: min(240px, calc(100vw - 48px));
+  padding: 8px 10px;
+  border: 1px solid #cfe1f2;
+  border-radius: 10px;
+  background: #17324a;
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 600;
   line-height: 1.35;
+  box-shadow: 0 10px 28px rgba(15, 42, 67, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.field-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 10px;
+  height: 10px;
+  background: #17324a;
+  border-right: 1px solid #17324a;
+  border-bottom: 1px solid #17324a;
+  transform: translateX(-50%) rotate(45deg);
+}
+.field-tooltip-wrap:hover .field-tooltip,
+.field-tooltip-wrap:focus .field-tooltip,
+.field-tooltip-wrap:focus-visible .field-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 .score-driver-banner {
   display: grid;
@@ -1925,6 +1970,17 @@ label span { font-size: 0.9rem; font-weight: 700; color: #28455e; }
 
 .detail-modal { display: grid; gap: 16px; }
 .detail-header { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.detail-header-actions .primary-btn,
+.detail-header-actions .secondary-btn {
+  padding: 10px 14px;
+}
 .detail-title { margin: 0; color: #102a43; }
 .detail-badges { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }

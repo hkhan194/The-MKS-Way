@@ -30,6 +30,27 @@ window.APP_CONFIG = {
       { value: "70001to100000", label: "GBP 70,001 to GBP 100,000" },
       { value: "over100000", label: "Over GBP 100,000" }
     ],
+    clientSensitiveDataOptions: [
+      { value: "yes", label: "Yes" },
+      { value: "no", label: "No" },
+      { value: "unsure", label: "Unsure" }
+    ],
+    audienceVisibility: [
+      { value: "internal-only", label: "Internal only" },
+      { value: "client-only", label: "Client only" },
+      { value: "internal-and-client", label: "Internal and client" }
+    ],
+    mandatoryProject: [
+      { value: "yes", label: "Yes" },
+      { value: "no", label: "No" }
+    ],
+    scoreScale: [
+      { value: "1", label: "1" },
+      { value: "2", label: "2" },
+      { value: "3", label: "3" },
+      { value: "4", label: "4" },
+      { value: "5", label: "5" }
+    ],
     deliveryTimeline: [
       { value: "upto3", label: "Up to 3 months" },
       { value: "3to6", label: "3 to 6 months" },

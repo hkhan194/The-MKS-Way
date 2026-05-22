@@ -18,7 +18,7 @@
   <script src="react-dom.development.js"></script>
   <script src="babel.min.js"></script>
   <script id="app-source" type="text/plain">
-                                                                                const { useEffect, useMemo, useState } = React;
+    const { useEffect, useMemo, useState } = React;
     const { sidebarNav, intakeOptions, documentTemplates, mockProjects, currentUser: currentUserProfile } = window.APP_CONFIG;
     const { assess, rules: scoringRules } = window.ScoringEngine;
     const draftStorageKey = "mks-intake-draft";
@@ -30,13 +30,24 @@
 
     const defaultForm = {
       projectName: "",
+      submittedBy: "",
+      department: "",
+      budgetBand: "",
+      clientSensitiveData: "",
+      audienceVisibility: "",
+      projectObjective: "",
+      strategicAlignment: "",
+      valueBenefits: "",
+      costResourceEfficiency: "",
+      riskCompliance: "",
+      timeSensitivity: "",
+      feasibility: "",
+      confidenceScore: "",
+      isMandatoryProject: "",
       primarySponsor: "",
       startDate: "",
       targetEndDate: "",
       strategicPillar: "",
-      department: "",
-      budgetBand: "",
-      clientSensitiveData: "",
       audienceType: "",
       strategicImportance: "",
       projectDescription: "",
@@ -48,23 +59,116 @@
     };
     const requiredBriefFields = [
       "projectName",
-      "primarySponsor",
+      "submittedBy",
       "startDate",
       "targetEndDate",
-      "strategicPillar",
       "department",
-      "budgetBand",
       "clientSensitiveData",
-      "audienceType",
-      "strategicImportance",
-      "projectDescription"
+      "audienceVisibility",
+      "isMandatoryProject",
+      "projectObjective",
+      "strategicAlignment",
+      "valueBenefits",
+      "costResourceEfficiency",
+      "riskCompliance",
+      "timeSensitivity",
+      "feasibility",
+      "confidenceScore"
     ];
+    const fieldHelpText = {
+      projectName: "Use a short, clear name for the proposed project.",
+      submittedBy: "Select or enter the person submitting this proposed project.",
+      startDate: "Enter the expected or preferred start date.",
+      targetEndDate: "Enter the expected or preferred target end date.",
+      department: "Select the department requesting or affected by this proposed project.",
+      budgetBand: "Enter the estimated budget if known. Leave blank if unknown.",
+      clientSensitiveData: "Select whether this project may involve client data.",
+      audienceVisibility: "Select who the project outcomes will affect.",
+      isMandatoryProject: "Mandatory means the project must happen due to law, regulation, external audit, or another external authority.",
+      projectObjective: "Explain what you are trying to achieve and what outcome you expect.",
+      strategicAlignment: "Score how strongly the project supports strategic objectives.",
+      valueBenefits: "Score the expected value or benefit of the project.",
+      costResourceEfficiency: "Score the expected return compared with cost and resource effort.",
+      riskCompliance: "Score the risk and compliance position of the project.",
+      timeSensitivity: "Score how urgent or time-sensitive the project is.",
+      feasibility: "Score how realistic it is to deliver the project.",
+      confidenceScore: "Score how confident you are in the information provided. This must not affect project score or size."
+    };
+    const scoreOptionSets = {
+      strategicAlignment: [
+        { value: "5", label: "5 \u2013 Directly delivers core strategic objectives" },
+        { value: "4", label: "4 \u2013 Strongly supports strategic objectives" },
+        { value: "3", label: "3 \u2013 Indirectly supports strategy" },
+        { value: "2", label: "2 \u2013 Weak / unclear alignment" },
+        { value: "1", label: "1 \u2013 Minimal relevance" },
+        { value: "0", label: "0 \u2013 No alignment" }
+      ],
+      valueBenefits: [
+        { value: "5", label: "5 \u2013 Very high value / transformational benefit" },
+        { value: "4", label: "4 \u2013 High value" },
+        { value: "3", label: "3 \u2013 Moderate value" },
+        { value: "2", label: "2 \u2013 Low value" },
+        { value: "1", label: "1 \u2013 Minimal value" },
+        { value: "0", label: "0 \u2013 No clear benefit" }
+      ],
+      costResourceEfficiency: [
+        { value: "5", label: "5 \u2013 Very high return (clear quick win)" },
+        { value: "4", label: "4 \u2013 Good return" },
+        { value: "3", label: "3 \u2013 Balanced value vs cost" },
+        { value: "2", label: "2 \u2013 Low return" },
+        { value: "1", label: "1 \u2013 Poor value" },
+        { value: "0", label: "0 \u2013 Cost outweighs benefit" }
+      ],
+      riskCompliance: [
+        { value: "5", label: "5 \u2013 Very low risk" },
+        { value: "4", label: "4 \u2013 Low risk" },
+        { value: "3", label: "3 \u2013 Moderate risk" },
+        { value: "2", label: "2 \u2013 High risk" },
+        { value: "1", label: "1 \u2013 Very high risk" },
+        { value: "0", label: "0 \u2013 Unacceptable risk" }
+      ],
+      timeSensitivity: [
+        { value: "5", label: "5 \u2013 Fixed deadline (regulatory / critical)" },
+        { value: "4", label: "4 \u2013 Major impact if delayed" },
+        { value: "3", label: "3 \u2013 Time-sensitive but flexible" },
+        { value: "2", label: "2 \u2013 Useful to deliver soon" },
+        { value: "1", label: "1 \u2013 Low urgency" },
+        { value: "0", label: "0 \u2013 No urgency" }
+      ],
+      feasibility: [
+        { value: "5", label: "5 \u2013 Fully feasible now" },
+        { value: "4", label: "4 \u2013 Feasible with minor effort" },
+        { value: "3", label: "3 \u2013 Feasible with prioritisation" },
+        { value: "2", label: "2 \u2013 Difficult to deliver" },
+        { value: "1", label: "1 \u2013 Very difficult" },
+        { value: "0", label: "0 \u2013 Not feasible" }
+      ],
+      confidenceScore: [
+        { value: "5", label: "5 \u2013 Very high confidence (evidence-based)" },
+        { value: "4", label: "4 \u2013 High confidence" },
+        { value: "3", label: "3 \u2013 Reasonable confidence" },
+        { value: "2", label: "2 \u2013 Low confidence" },
+        { value: "1", label: "1 \u2013 Very low confidence" },
+        { value: "0", label: "0 \u2013 No evidence / speculative" }
+      ]
+    };
     const scoreDriverFields = new Set([
-      "budgetBand",
-      "clientSensitiveData",
-      "audienceType",
-      "strategicImportance"
+      "strategicAlignment",
+      "valueBenefits",
+      "costResourceEfficiency",
+      "riskCompliance",
+      "timeSensitivity",
+      "feasibility"
     ]);
+    const scoreFieldDefinitions = [
+      { name: "strategicAlignment", title: "Strategic Alignment", helper: fieldHelpText.strategicAlignment, options: scoreOptionSets.strategicAlignment },
+      { name: "valueBenefits", title: "Value / Benefits", helper: fieldHelpText.valueBenefits, options: scoreOptionSets.valueBenefits },
+      { name: "costResourceEfficiency", title: "Cost / Resource Efficiency", helper: fieldHelpText.costResourceEfficiency, options: scoreOptionSets.costResourceEfficiency },
+      { name: "riskCompliance", title: "Risk and Compliance", helper: fieldHelpText.riskCompliance, options: scoreOptionSets.riskCompliance },
+      { name: "timeSensitivity", title: "Time Sensitivity", helper: fieldHelpText.timeSensitivity, options: scoreOptionSets.timeSensitivity },
+      { name: "feasibility", title: "Feasibility", helper: fieldHelpText.feasibility, options: scoreOptionSets.feasibility },
+      { name: "confidenceScore", title: "Confidence Score", helper: fieldHelpText.confidenceScore, options: scoreOptionSets.confidenceScore }
+    ];
     const documentReviewGuidance = {
       "Project Charter": "In the Project Charter, some core sections look incomplete. Please complete the objective, scope, and sponsor case before re-uploading it.",
       "Business Case": "In the Business Case, some key sections look incomplete. Please add the costs, benefits, and justification before re-uploading it.",
@@ -75,11 +179,41 @@
 
     function normaliseFormValues(values) {
       const normalised = { ...defaultForm, ...(values || {}) };
+      if (!normalised.submittedBy && normalised.primarySponsor) {
+        normalised.submittedBy = normalised.primarySponsor;
+      }
+      if (!normalised.primarySponsor && normalised.submittedBy) {
+        normalised.primarySponsor = normalised.submittedBy;
+      }
+      if (!normalised.projectObjective && normalised.projectDescription) {
+        normalised.projectObjective = normalised.projectDescription;
+      }
+      if (!normalised.projectDescription && normalised.projectObjective) {
+        normalised.projectDescription = normalised.projectObjective;
+      }
       if (!normalised.projectDescription && normalised.oneLineJustification) {
         normalised.projectDescription = normalised.oneLineJustification;
       }
       if (!normalised.oneLineJustification && normalised.projectDescription) {
         normalised.oneLineJustification = normalised.projectDescription;
+      }
+      if (!normalised.projectObjective && normalised.oneLineJustification) {
+        normalised.projectObjective = normalised.oneLineJustification;
+      }
+      if (!normalised.audienceVisibility && normalised.audienceType) {
+        normalised.audienceVisibility = {
+          internal: "internal-only",
+          client: "client-only",
+          both: "internal-and-client",
+          hybrid: "internal-and-client"
+        }[normalised.audienceType] || normalised.audienceType;
+      }
+      if (!normalised.audienceType && normalised.audienceVisibility) {
+        normalised.audienceType = {
+          "internal-only": "internal",
+          "client-only": "client",
+          "internal-and-client": "both"
+        }[normalised.audienceVisibility] || normalised.audienceVisibility;
       }
       if (!normalised.projectManager) {
         normalised.projectManager = currentUserProfile.name;
@@ -138,9 +272,7 @@
       const normalised = normaliseFormValues(values);
       return {
         ...normalised,
-        oneLineJustification: normalised.projectDescription || normalised.oneLineJustification,
-        deliveryTimeline: deriveDeliveryTimeline(normalised.startDate, normalised.targetEndDate),
-        impactedTeams: normalised.impactedTeams || "2to3"
+        oneLineJustification: normalised.projectObjective || normalised.projectDescription || normalised.oneLineJustification
       };
     }
 
@@ -182,7 +314,7 @@
       return {
         projectName: project.name,
         projectNumber: project.projectNumber,
-        submittedBy: project.createdBy || currentUserProfile.name,
+        submittedBy: project.submittedBy || project.createdBy || currentUserProfile.name,
         submittedAt: new Date().toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
       };
     }
@@ -198,16 +330,10 @@
     }
 
     function getProjectSizeLabel(size) {
-      const labels = {
-        XS: "Extra small project",
-        S: "Small project",
-        M: "Medium project",
-        L: "Large project",
-        XL: "Very large project",
-        XXL: "Programme-scale project"
-      };
-
-      return labels[size] || "Sizing in progress";
+      if (size === "XS" || size === "S" || size === "Small") return "Small";
+      if (size === "M" || size === "Medium") return "Medium";
+      if (size === "L" || size === "XL" || size === "XXL" || size === "Large") return "Large";
+      return "Medium";
     }
 
     function normaliseProjectName(name) {
@@ -339,28 +465,19 @@
     }
 
     function getTshirtSizeHint(size) {
-      const hints = {
-        XS: "Small change",
-        S: "Smaller project",
-        M: "Medium project",
-        L: "Larger piece of work",
-        XL: "Large and complex",
-        XXL: "Programme-scale"
-      };
-
-      return hints[size] || "Project size";
+      return getProjectSizeLabel(size);
     }
 
     function buildScoreBreakdown(values) {
       const assessmentValues = buildAssessmentInput(values);
-      const items = [
-        { key: "strategicPriority", label: "Strategic priority", group: "strategicImportance", value: assessmentValues.strategicImportance },
-        { key: "budget", label: "Budget", group: "budget", value: assessmentValues.budgetBand },
-        { key: "timeline", label: "Timeline", group: "deliveryTimeline", value: assessmentValues.deliveryTimeline },
-        { key: "teams", label: "Impacted teams", group: "impactedTeams", value: assessmentValues.impactedTeams },
-        { key: "data", label: "Sensitive data", group: "clientSensitiveData", value: assessmentValues.clientSensitiveData },
-        { key: "audience", label: "Audience", group: "audienceType", value: assessmentValues.audienceType }
-      ];
+      const items = scoreFieldDefinitions
+        .filter((item) => scoreDriverFields.has(item.name))
+        .map((item) => ({
+          key: item.name,
+          label: item.title,
+          group: item.name,
+          value: assessmentValues[item.name]
+        }));
 
       return items.map((item) => {
         const scoreMap = scoringRules.scores[item.group] || {};
@@ -378,32 +495,26 @@
 
     function createDocumentReadOnlyContent(documentName, values, projectNameOverride = "") {
       const projectName = projectNameOverride || values.projectName || "Submitted project";
-      const sponsor = values.primarySponsor || "To be confirmed";
+      const sponsor = values.submittedBy || values.primarySponsor || "To be confirmed";
       const manager = values.projectManager || "To be confirmed";
       const department = values.department || "To be confirmed";
-      const objective = values.projectDescription || values.oneLineJustification || "No business objective was captured in the prototype record.";
-      const assessmentValues = buildAssessmentInput(values);
-      const timeline = values.startDate && values.targetEndDate
-        ? `${values.startDate} to ${values.targetEndDate}`
-        : (intakeOptions.deliveryTimeline || []).find((item) => item.value === assessmentValues.deliveryTimeline)?.label || "To be confirmed";
+      const objective = values.projectObjective || values.projectDescription || values.oneLineJustification || "No project objective was captured in the prototype record.";
       const budget = (intakeOptions.budgetBands || []).find((item) => item.value === values.budgetBand)?.label || "To be confirmed";
-      const dataLabel = values.clientSensitiveData === "yes" ? "Yes" : values.clientSensitiveData === "no" ? "No" : "To be confirmed";
-      const teamsLabel = (intakeOptions.impactedTeams || []).find((item) => item.value === assessmentValues.impactedTeams)?.label || "To be confirmed";
-      const audienceLabel = (intakeOptions.audienceType || []).find((item) => item.value === values.audienceType)?.label || "To be confirmed";
-      const priorityLabel = (intakeOptions.strategicImportance || []).find((item) => item.value === values.strategicImportance)?.label || "To be confirmed";
+      const dataLabel = getSensitiveDataLabel(values.clientSensitiveData);
+      const audienceLabel = getAudienceVisibilityLabel(values.audienceVisibility || values.audienceType);
 
-      const commonIntro = `Project: ${projectName}\nSponsor: ${sponsor}\nProject manager: ${manager}\nDepartment: ${department}`;
+      const commonIntro = `Project: ${projectName}\nSubmitted by: ${sponsor}\nProject manager: ${manager}\nDepartment: ${department}`;
 
       if (documentName === "Project Charter") {
-        return `${commonIntro}\n\nSummary\n${objective}\n\nScope and delivery window\nEstimated timeline: ${timeline}\nBudget band: ${budget}\nImpacted teams: ${teamsLabel}`;
+        return `${commonIntro}\n\nProject objective\n${objective}\n\nSummary\nEstimated budget: ${budget}\nAudience visibility: ${audienceLabel}`;
       }
 
       if (documentName === "Business Case") {
-        return `${commonIntro}\n\nBusiness need\n${objective}\n\nWhy this matters\nStrategic priority: ${priorityLabel}\nAudience: ${audienceLabel}\nExpected delivery window: ${timeline}`;
+        return `${commonIntro}\n\nBusiness need\n${objective}\n\nWhy this matters\nAudience visibility: ${audienceLabel}\nScoring answers: strategic alignment ${values.strategicAlignment || "?"}, value ${values.valueBenefits || "?"}, efficiency ${values.costResourceEfficiency || "?"}, risk ${values.riskCompliance || "?"}, time ${values.timeSensitivity || "?"}, feasibility ${values.feasibility || "?"}.`;
       }
 
       if (documentName === "Risk Assessment Template") {
-        return `${commonIntro}\n\nInitial risks captured\nSensitive data: ${dataLabel}\nImpacted teams: ${teamsLabel}\nKey watchpoint: governance, delivery, and adoption risks need to be reviewed before approval.`;
+        return `${commonIntro}\n\nInitial risks captured\nClient sensitive data: ${dataLabel}\nKey watchpoint: governance, delivery, and adoption risks need to be reviewed before approval.`;
       }
 
       if (documentName === "Data Privacy Assessment Form") {
@@ -661,6 +772,7 @@
       return !!(
         currentUserProfile.isAdmin
         || project.createdBy === currentUserProfile.name
+        || project.submittedBy === currentUserProfile.name
         || project.projectManager === currentUserProfile.name
         || project.primarySponsor === currentUserProfile.name
       );
@@ -752,7 +864,7 @@
       const sourceDepartment = metadataOverrides.department || project.department;
       const projectManager = sourceProjectManager === "Hasan Khan" ? currentUserProfile.name : sourceProjectManager;
       const createdBy = project.createdBy === "Hasan Khan" ? currentUserProfile.name : project.createdBy;
-      const businessObjective = project.businessObjective?.replace("12 Apple Street", "12 Appold Street");
+      const businessObjective = (project.businessObjective || project.projectObjective)?.replace("12 Apple Street", "12 Appold Street");
       const next30DaysPipeline = project.next30DaysPipeline?.replace("12 Apple Street", "12 Appold Street");
       const migratedStatus = isLegacySubmittedDraft ? "Submitted" : project.status;
       const submittedTimeline = hasSubmittedDraftValues ? getSubmittedTimeline(project.draftFormValues) : null;
@@ -764,9 +876,13 @@
         status: migratedStatus,
         projectManager,
         primarySponsor: sourceSponsor,
+        submittedBy: project.submittedBy || project.createdBy || sourceSponsor,
         department: sourceDepartment,
         createdBy: createdBy || projectManager || "",
         businessObjective,
+        projectObjective: project.projectObjective || businessObjective,
+        audienceVisibilityLabel: project.audienceVisibilityLabel || project.audienceType || project.projectType,
+        mandatoryProjectLabel: project.mandatoryProjectLabel || getMandatoryProjectLabel(project.isMandatoryProject),
         next30DaysPipeline,
         roadmapPhase: isLegacySubmittedDraft ? "submitted" : project.roadmapPhase,
         currentRisk: isLegacySubmittedDraft ? "Submitted - pending review" : project.currentRisk,
@@ -1124,15 +1240,21 @@
       );
     }
 
-    function FormFieldLabel({ title, required = false, driver = false, helper = "" }) {
+    function FormFieldLabel({ title, required = false, helper = "" }) {
       return (
         <div className="field-label-block">
           <span className="field-label-text">
-            {title}
-            {required && <span className="required-asterisk">?</span>}
-            {driver && <span className="field-driver-inline">drives score and size</span>}
+            <span>
+              {title}
+              {required && <span className="required-asterisk">*</span>}
+            </span>
+            {helper && (
+              <span className="field-tooltip-wrap" tabIndex="0" aria-label={`${title} help`}>
+                <Icon icon="help" className="field-help-icon" />
+                <span className="field-tooltip" role="tooltip">{helper}</span>
+              </span>
+            )}
           </span>
-          {helper && <span className="field-helper-copy">{helper}</span>}
         </div>
       );
     }
@@ -1170,6 +1292,20 @@
       return intakeOptions.audienceType.find((item) => item.value === value)?.label || "To be confirmed";
     }
 
+    function getAudienceVisibilityLabel(value) {
+      const labels = {
+        "internal-only": "Internal only",
+        "client-only": "Client only",
+        "internal-and-client": "Internal and client",
+        internal: "Internal only",
+        client: "Client only",
+        both: "Internal and client",
+        hybrid: "Internal and client"
+      };
+
+      return labels[value] || "To be confirmed";
+    }
+
     function getPriorityLabel(value) {
       return intakeOptions.strategicImportance.find((item) => item.value === value)?.label || "To be confirmed";
     }
@@ -1177,14 +1313,24 @@
     function getSensitiveDataLabel(value) {
       if (value === "yes") return "Yes";
       if (value === "no") return "No";
+      if (value === "unsure") return "Unsure";
+      return "To be confirmed";
+    }
+
+    function getMandatoryProjectLabel(value) {
+      if (value === "yes") return "Yes";
+      if (value === "no") return "No";
       return "To be confirmed";
     }
 
     function getBudgetBandLabel(value) {
-      return intakeOptions.budgetBands.find((item) => item.value === value)?.label || "To be confirmed";
+      return intakeOptions.budgetBands.find((item) => item.value === value)?.label || "Not provided";
     }
 
     function getProjectTypeFromAudience(value) {
+      if (value === "client-only") return "Client only";
+      if (value === "internal-only") return "Internal only";
+      if (value === "internal-and-client") return "Internal and client";
       if (value === "client") return "Client-facing initiative";
       if (value === "internal") return "Internal initiative";
       if (value === "hybrid") return "Hybrid initiative";
@@ -1200,6 +1346,7 @@
         : getNextProjectNumber(options.projectList || [], normalised.department);
       const projectId = options.projectId || `project-${Date.now()}`;
       const createdBy = options.createdBy || currentUserProfile.name;
+      const submittedBy = normalised.submittedBy || createdBy;
       const budgetLabel = getBudgetBandLabel(normalised.budgetBand);
       const submittedTimeline = getSubmittedTimeline(normalised);
       const lifecycleCurrentPhase = options.lifecycleCurrentPhase || "initiation";
@@ -1212,10 +1359,11 @@
         tshirtSize: assessment?.tshirtSize || "TBC",
         completionPercentage: options.completionPercentage ?? 0,
         projectManager: normalised.projectManager || createdBy,
-        primarySponsor: normalised.primarySponsor,
+        primarySponsor: submittedBy,
+        submittedBy,
         department: normalised.department,
-        projectType: getProjectTypeFromAudience(normalised.audienceType),
-        strategicPillar: normalised.strategicPillar,
+        projectType: getProjectTypeFromAudience(normalised.audienceVisibility),
+        strategicPillar: normalised.strategicPillar || "",
         budget: budgetLabel,
         overallScore: assessment?.score || 0,
         currentRisk: options.currentRisk || "New brief submitted",
@@ -1225,7 +1373,7 @@
         currentPosition: options.currentPosition || "This project is in initiation and waiting for the next gateway step.",
         next30DaysPipeline: options.next30DaysPipeline || "Finish initiation documents, get ready for the gateway, and send it for PMO review.",
         steeringDecisionNeeded: options.steeringDecisionNeeded || "No decision needed yet.",
-        businessObjective: normalised.projectDescription,
+        businessObjective: normalised.projectObjective,
         projectHealthChartData: buildDefaultHealthRadar(assessment?.score || 20),
         projectHealthTriangleData: buildTriangleFromIndicators({
           overallScore: assessment?.score || 20,
@@ -1241,25 +1389,125 @@
         lifecycleReviewStatus: options.lifecycleReviewStatus || lifecycleReviewStatuses.notSubmitted,
         startDate: normalised.startDate,
         targetEndDate: normalised.targetEndDate,
-        audienceType: getAudienceTypeLabel(normalised.audienceType),
+        audienceType: getAudienceVisibilityLabel(normalised.audienceVisibility),
+        audienceVisibility: normalised.audienceVisibility,
+        audienceVisibilityLabel: getAudienceVisibilityLabel(normalised.audienceVisibility),
         clientSensitiveDataLabel: getSensitiveDataLabel(normalised.clientSensitiveData),
-        strategicPriorityLabel: getPriorityLabel(normalised.strategicImportance),
+        strategicPriorityLabel: "",
         budgetBandLabel: budgetLabel,
+        confidenceScore: normalised.confidenceScore,
+        isMandatoryProject: normalised.isMandatoryProject,
+        mandatoryProjectLabel: getMandatoryProjectLabel(normalised.isMandatoryProject),
+        projectObjective: normalised.projectObjective,
+        strategicAlignment: normalised.strategicAlignment,
+        valueBenefits: normalised.valueBenefits,
+        costResourceEfficiency: normalised.costResourceEfficiency,
+        riskCompliance: normalised.riskCompliance,
+        timeSensitivity: normalised.timeSensitivity,
+        feasibility: normalised.feasibility,
         ...submittedTimeline
       });
     }
 
-    function ProjectDetailModal({ project, onClose, canResumeDraft, onResumeDraft }) {
+    function ProjectDetailModal({ project, onClose, canResumeDraft, onResumeDraft, onSaveProject }) {
+      const [isEditing, setIsEditing] = useState(false);
+      const [editValues, setEditValues] = useState(defaultForm);
+
+      useEffect(() => {
+        if (!project) {
+          setIsEditing(false);
+          setEditValues(defaultForm);
+          return;
+        }
+
+        const budgetBandValue = intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "";
+        const clientSensitiveDataValue = project.clientSensitiveDataLabel === "Yes"
+          ? "yes"
+          : project.clientSensitiveDataLabel === "No"
+            ? "no"
+            : project.clientSensitiveDataLabel === "Unsure"
+              ? "unsure"
+              : "";
+        const audienceVisibilityValue = project.audienceVisibility
+          || (project.audienceVisibilityLabel === "Internal only"
+            ? "internal-only"
+            : project.audienceVisibilityLabel === "Client only"
+              ? "client-only"
+              : project.audienceVisibilityLabel === "Internal and client"
+                ? "internal-and-client"
+                : "");
+
+        setIsEditing(false);
+        setEditValues(normaliseFormValues({
+          projectName: project.name || "",
+          submittedBy: project.submittedBy || project.createdBy || project.primarySponsor || "",
+          department: project.department || "",
+          budgetBand: budgetBandValue,
+          clientSensitiveData: clientSensitiveDataValue,
+          audienceVisibility: audienceVisibilityValue,
+          projectObjective: project.projectObjective || project.businessObjective || "",
+          confidenceScore: project.confidenceScore || "",
+          isMandatoryProject: project.isMandatoryProject || "",
+          projectManager: project.projectManager || ""
+        }));
+      }, [project]);
+
       if (!project) {
         return <Modal isOpen={false} onClose={onClose} titleId="projectDetailTitle" />;
       }
 
-      const projectDisplayStatus = getLifecycleDisplayStatus(project);
       const lifecycleRecord = buildLifecycleGovernanceRecord(project);
       const currentPhaseRecord = lifecycleRecord.phases.find((phase) => phase.key === lifecycleRecord.currentPhase) || lifecycleRecord.phases[0];
-      const currentPhaseReview = currentPhaseRecord.reviewStatus || lifecycleReviewStatuses.notSubmitted;
-      const submissionJourney = buildSubmissionJourney(project);
       const showFutureSections = false;
+      const canEditProject = !!currentUserProfile.isAdmin && typeof onSaveProject === "function";
+
+      const updateEditField = (name, value) => {
+        setEditValues((current) => ({
+          ...current,
+          [name]: value
+        }));
+      };
+
+      const saveProjectDetails = () => {
+        const normalised = normaliseFormValues(editValues);
+        onSaveProject(project.id, {
+          name: normalised.projectName,
+          projectManager: normalised.projectManager,
+          primarySponsor: normalised.submittedBy,
+          submittedBy: normalised.submittedBy,
+          department: normalised.department,
+          budget: getBudgetBandLabel(normalised.budgetBand),
+          budgetBand: normalised.budgetBand,
+          budgetBandLabel: getBudgetBandLabel(normalised.budgetBand),
+          clientSensitiveData: normalised.clientSensitiveData,
+          clientSensitiveDataLabel: getSensitiveDataLabel(normalised.clientSensitiveData),
+          audienceVisibility: normalised.audienceVisibility,
+          audienceType: getAudienceVisibilityLabel(normalised.audienceVisibility),
+          audienceVisibilityLabel: getAudienceVisibilityLabel(normalised.audienceVisibility),
+          projectType: getProjectTypeFromAudience(normalised.audienceVisibility),
+          confidenceScore: normalised.confidenceScore,
+          isMandatoryProject: normalised.isMandatoryProject,
+          mandatoryProjectLabel: getMandatoryProjectLabel(normalised.isMandatoryProject),
+          projectObjective: normalised.projectObjective,
+          businessObjective: normalised.projectObjective,
+          draftFormValues: project.draftFormValues
+            ? {
+                ...project.draftFormValues,
+                projectName: normalised.projectName,
+                submittedBy: normalised.submittedBy,
+                department: normalised.department,
+                budgetBand: normalised.budgetBand,
+                clientSensitiveData: normalised.clientSensitiveData,
+                audienceVisibility: normalised.audienceVisibility,
+                projectObjective: normalised.projectObjective,
+                confidenceScore: normalised.confidenceScore,
+                isMandatoryProject: normalised.isMandatoryProject,
+                projectManager: normalised.projectManager
+              }
+            : project.draftFormValues
+        });
+        setIsEditing(false);
+      };
 
       return (
         <Modal isOpen={!!project} onClose={onClose} titleId="projectDetailTitle">
@@ -1267,35 +1515,39 @@
             <div className="detail-header">
               <div>
                 <h2 id="projectDetailTitle" className="detail-title">{project.name}</h2>
-                <div className="detail-badges">
-                  <span className={`status-pill ${getStatusClass(projectDisplayStatus.label)}`}>{projectDisplayStatus.label}</span>
-                  <span className="size-badge">{project.tshirtSize}</span>
-                </div>
               </div>
-              <button className="icon-btn" type="button" aria-label="Close project details" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
+              <div className="detail-header-actions">
+                {canEditProject && !isEditing && <button className="secondary-btn" type="button" onClick={() => setIsEditing(true)}>Edit</button>}
+                {canEditProject && isEditing && (
+                  <>
+                    <button className="secondary-btn" type="button" onClick={() => { setIsEditing(false); setEditValues(normaliseFormValues({
+                      projectName: project.name || "",
+                      submittedBy: project.submittedBy || project.createdBy || project.primarySponsor || "",
+                      department: project.department || "",
+                      budgetBand: intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "",
+                      clientSensitiveData: project.clientSensitiveDataLabel === "Yes" ? "yes" : project.clientSensitiveDataLabel === "No" ? "no" : project.clientSensitiveDataLabel === "Unsure" ? "unsure" : "",
+                      audienceVisibility: project.audienceVisibility || (project.audienceVisibilityLabel === "Internal only" ? "internal-only" : project.audienceVisibilityLabel === "Client only" ? "client-only" : project.audienceVisibilityLabel === "Internal and client" ? "internal-and-client" : ""),
+                      projectObjective: project.projectObjective || project.businessObjective || "",
+                      confidenceScore: project.confidenceScore || "",
+                      isMandatoryProject: project.isMandatoryProject || "",
+                      projectManager: project.projectManager || ""
+                    })); }}>Cancel</button>
+                    <button className="primary-btn" type="button" onClick={saveProjectDetails}>Save</button>
+                  </>
+                )}
+                <button className="icon-btn" type="button" aria-label="Close project details" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
+              </div>
             </div>
 
-            <section className="detail-card summary-card">
-              <div className="section-header-row">
-                <div className="section-title-row">
-                  <p className="section-title">Snapshot</p>
+            {project.status === "Draft" && canResumeDraft && (
+              <div className="draft-banner">
+                <div>
+                  <p className="draft-banner-title">Draft brief</p>
+                  <p className="draft-banner-copy">This brief is not finished yet. Open it and carry on from where you stopped.</p>
                 </div>
+                <button className="primary-btn" type="button" onClick={() => onResumeDraft(project)}>Resume form</button>
               </div>
-              {project.status === "Draft" && canResumeDraft && (
-                <div className="draft-banner">
-                  <div>
-                    <p className="draft-banner-title">Draft brief</p>
-                    <p className="draft-banner-copy">This brief is not finished yet. Open it and carry on from where you stopped.</p>
-                  </div>
-                  <button className="primary-btn" type="button" onClick={() => onResumeDraft(project)}>Resume form</button>
-                </div>
-              )}
-              <div className="summary-grid">
-                <div><dt>Completion</dt><dd>{project.completionPercentage}%</dd></div>
-                <div><dt>Score</dt><dd>{project.overallScore}/100</dd></div>
-                <div><dt>Status</dt><dd>{submissionJourney.currentStatus}</dd></div>
-              </div>
-            </section>
+            )}
 
             <div className="detail-grid">
               <section className="detail-card">
@@ -1308,7 +1560,6 @@
                   <div><dt>Project number</dt><dd>{project.projectNumber || "To be set"}</dd></div>
                   <div><dt>Lifecycle stage</dt><dd>{currentPhaseRecord.label}</dd></div>
                   <div><dt>Gateway</dt><dd>{currentPhaseRecord.gatewayLabel}</dd></div>
-                  <div><dt>PMO review</dt><dd>{currentPhaseReview}</dd></div>
                 </dl>
               </section>
 
@@ -1319,8 +1570,8 @@
                   </div>
                 </div>
                 <dl className="detail-list">
-                  <div><dt>T-shirt size</dt><dd>{project.tshirtSize}</dd></div>
-                  <div><dt>Meaning</dt><dd>{getTshirtSizeHint(project.tshirtSize)}</dd></div>
+                  <div><dt>Project size</dt><dd>{getProjectSizeLabel(project.tshirtSize)}</dd></div>
+                  <div><dt>Score</dt><dd>{project.overallScore}/100</dd></div>
                 </dl>
               </section>
 
@@ -1330,17 +1581,32 @@
                     <p className="section-title">Details</p>
                   </div>
                 </div>
-                <dl className="detail-list">
-                  <div><dt>Project manager</dt><dd>{project.projectManager}</dd></div>
-                  <div><dt>Primary sponsor</dt><dd>{project.primarySponsor}</dd></div>
-                  <div><dt>Department</dt><dd>{project.department}</dd></div>
-                  <div><dt>Strategic pillar</dt><dd>{project.strategicPillar}</dd></div>
-                  <div><dt>Start date</dt><dd>{project.startDate || "To be confirmed"}</dd></div>
-                  <div><dt>Target end date</dt><dd>{project.targetEndDate || "To be confirmed"}</dd></div>
-                  <div><dt>Budget</dt><dd>{project.budget}</dd></div>
-                  <div><dt>Audience</dt><dd>{project.projectType}</dd></div>
-                  <div className="detail-list-full"><dt>Project description</dt><dd>{project.businessObjective}</dd></div>
-                </dl>
+                {isEditing ? (
+                  <div className="detail-edit-grid">
+                    <label><span>Project name</span><input type="text" value={editValues.projectName || ""} onChange={(event) => updateEditField("projectName", event.target.value)} /></label>
+                    <label><span>Project manager</span><input type="text" value={editValues.projectManager || ""} onChange={(event) => updateEditField("projectManager", event.target.value)} /></label>
+                    <label><span>Submitted by</span><input type="text" value={editValues.submittedBy || ""} onChange={(event) => updateEditField("submittedBy", event.target.value)} /></label>
+                    <label><span>Department</span><select className={!editValues.department ? "is-placeholder" : ""} value={editValues.department || ""} onChange={(event) => updateEditField("department", event.target.value)}><option value="">Choose one</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+                    <label><span>Estimated budget</span><select className={!editValues.budgetBand ? "is-placeholder" : ""} value={editValues.budgetBand || ""} onChange={(event) => updateEditField("budgetBand", event.target.value)}><option value="">Optional</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                    <label><span>Client sensitive data</span><select className={!editValues.clientSensitiveData ? "is-placeholder" : ""} value={editValues.clientSensitiveData || ""} onChange={(event) => updateEditField("clientSensitiveData", event.target.value)}><option value="">Choose one</option>{intakeOptions.clientSensitiveDataOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                    <label><span>Audience visibility</span><select className={!editValues.audienceVisibility ? "is-placeholder" : ""} value={editValues.audienceVisibility || ""} onChange={(event) => updateEditField("audienceVisibility", event.target.value)}><option value="">Choose one</option>{intakeOptions.audienceVisibility.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                    <label><span>Mandatory project</span><select className={!editValues.isMandatoryProject ? "is-placeholder" : ""} value={editValues.isMandatoryProject || ""} onChange={(event) => updateEditField("isMandatoryProject", event.target.value)}><option value="">Choose one</option>{intakeOptions.mandatoryProject.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                    <label><span>Confidence score</span><select className={!editValues.confidenceScore ? "is-placeholder" : ""} value={editValues.confidenceScore || ""} onChange={(event) => updateEditField("confidenceScore", event.target.value)}><option value="">Choose one</option>{scoreOptionSets.confidenceScore.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                    <label className="detail-list-full"><span>Project objective</span><textarea value={editValues.projectObjective || ""} onChange={(event) => updateEditField("projectObjective", event.target.value)} /></label>
+                  </div>
+                ) : (
+                  <dl className="detail-list">
+                    <div><dt>Project manager</dt><dd>{project.projectManager}</dd></div>
+                    <div><dt>Submitted by</dt><dd>{project.submittedBy || project.createdBy || project.primarySponsor}</dd></div>
+                    <div><dt>Department</dt><dd>{project.department}</dd></div>
+                    <div><dt>Estimated budget</dt><dd>{project.budget}</dd></div>
+                    <div><dt>Client sensitive data</dt><dd>{project.clientSensitiveDataLabel || "To be confirmed"}</dd></div>
+                    <div><dt>Audience visibility</dt><dd>{project.audienceVisibilityLabel || project.audienceType || project.projectType}</dd></div>
+                    <div><dt>Mandatory project</dt><dd>{project.mandatoryProjectLabel || getMandatoryProjectLabel(project.isMandatoryProject)}</dd></div>
+                    <div><dt>Confidence score</dt><dd>{project.confidenceScore || "To be confirmed"}</dd></div>
+                    <div className="detail-list-full"><dt>Project objective</dt><dd>{project.projectObjective || project.businessObjective}</dd></div>
+                  </dl>
+                )}
               </section>
 
               {showFutureSections && <section className="detail-card full-span"></section>}
@@ -2233,7 +2499,7 @@
                         <div>
                           <h3>{item.project.name}</h3>
                           <p className="roadmap-project-summary"><bdi className="department-badge">{item.project.department}</bdi>{getRoadmapPhaseLabel(item.project.roadmapPhase)}</p>
-                          <p className="roadmap-project-owners">Sponsor: {item.project.primarySponsor} Â· PM: {item.project.projectManager}</p>
+                          <p className="roadmap-project-owners">Sponsor: {item.project.primarySponsor} · PM: {item.project.projectManager}</p>
                           {!isExpanded && <p className="roadmap-expand-hint">Click to expand</p>}
                         </div>
                         <div className="roadmap-project-badges">
@@ -2272,7 +2538,7 @@
                                   <button
                                     className="roadmap-milestone roadmap-milestone-end"
                                     type="button"
-                                    title={`${milestoneSummary.milestone} â€¢ By ${milestoneSummary.byWhen}`}
+                                    title={`${milestoneSummary.milestone} • By ${milestoneSummary.byWhen}`}
                                     aria-label={`Open milestone details for ${phase.label}`}
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -2699,7 +2965,7 @@
                         <div>
                           <span className="governance-priority-badge">Priority {index + 1}</span>
                           <h4>{project.name}</h4>
-                          <p>{project.department} â€¢ {project.status}</p>
+                          <p>{project.department} • {project.status}</p>
                         </div>
                         <span className={`governance-rag-pill ${getGovernanceRagClass(project.overallRag)}`}>{project.overallRag}</span>
                       </div>
@@ -2760,7 +3026,7 @@
                         <tr key={`overview-${project.id}`}>
                           <td className="governance-overview-project">
                             <strong>{project.name}</strong>
-                            <span>{project.department} â€¢ Sponsor: {project.primarySponsor}</span>
+                            <span>{project.department} • Sponsor: {project.primarySponsor}</span>
                           </td>
                           <td>{project.status}</td>
                           <td><span className={`governance-rag-chip ${getGovernanceRagClass(project.governanceRag.time)}`}>{project.governanceRag.time}</span></td>
@@ -3171,11 +3437,11 @@
         return (
           <div className="help-visual-frame help-visual-process">
             <div className="help-visual-process-step">Brief sent</div>
-            <div className="help-visual-process-arrow">â†“</div>
+            <div className="help-visual-process-arrow">?</div>
             <div className="help-visual-process-step">Home in Initiation</div>
-            <div className="help-visual-process-arrow">â†“</div>
+            <div className="help-visual-process-arrow">?</div>
             <div className="help-visual-process-step">Lifecycle documents</div>
-            <div className="help-visual-process-arrow">â†“</div>
+            <div className="help-visual-process-arrow">?</div>
             <div className="help-visual-process-step">PMO review</div>
           </div>
         );
@@ -3227,12 +3493,11 @@
         if (sectionKey === "brief") {
           return (
             <>
-              <p className="help-card-copy">Use New project when the project does not exist yet.</p>
+              <p className="help-card-copy">Use New Proposed Project when the project does not exist yet.</p>
               <ul className="help-list">
-                <li>Click New project in the top bar.</li>
-                <li>Fill in all fields marked with a question mark.</li>
-                <li>Watch the progress bar move as you complete the brief.</li>
-                <li>Save draft if you want to come back later, or submit when ready.</li>
+                <li>Click New Proposed Project in the top bar.</li>
+                <li>Fill in all fields marked with a red asterisk.</li>
+                <li>Submit when all required fields are complete.</li>
               </ul>
             </>
           );
@@ -3401,7 +3666,7 @@
       const [statusFilter, setStatusFilter] = useState("All statuses");
       const [departmentFilter, setDepartmentFilter] = useState("All departments");
       const [pmFilter, setPmFilter] = useState("All PMs");
-      const [sponsorFilter, setSponsorFilter] = useState("All sponsors");
+      const [sponsorFilter, setSponsorFilter] = useState("All submitters");
       const [showHomepageInvolvedOnly, setShowHomepageInvolvedOnly] = useState(pageKey === "portfolio");
       const [roadmapScale, setRoadmapScale] = useState(storedSettings.defaultRoadmapView);
       const [showDraftProjects, setShowDraftProjects] = useState(storedSettings.showDraftProjects);
@@ -3478,20 +3743,6 @@
       }, []);
 
       const assessment = useMemo(() => (isComplete(formValues) ? assess(buildAssessmentInput(formValues)) : null), [formValues]);
-      const intakeProgress = useMemo(() => getFormCompletion(formValues), [formValues]);
-      const scoreBreakdown = useMemo(() => buildScoreBreakdown(formValues), [formValues]);
-      const projectReferencePreview = useMemo(() => (
-        formValues.department
-          ? getNextProjectNumber(
-            projects.filter((project) => project.id !== editingDraftId),
-            formValues.department
-          )
-          : `${getDepartmentPrefix("")}000000`
-      ), [projects, editingDraftId, formValues.department]);
-      const liveScore = scoreBreakdown.reduce((total, item) => total + item.score, 0);
-      const displayedScore = assessment ? assessment.score : liveScore;
-      const displayedScoreOutOf = assessment ? assessment.scoreOutOf : 100;
-      const displayedProjectSize = assessment ? getProjectSizeLabel(assessment.tshirtSize) : "Sizing in progress";
       const hasUnsavedIntakeChanges = editingDraftId || Object.values(formValues).some(Boolean) || Object.keys(uploadedDocuments).length > 0;
       const avatarInitials = getInitials(currentUserProfile.name);
 
@@ -3506,20 +3757,37 @@
         }
       };
 
-      const canViewProject = (project) => project.status !== "Draft" || currentUserProfile.isAdmin || project.createdBy === currentUserProfile.name;
-      const isAssignedToCurrentUser = (project) => [project.projectManager, project.primarySponsor, project.createdBy].includes(currentUserProfile.name);
+      const normalisePersonName = (name) => `${name || ""}`.trim().toLowerCase();
+      const getProjectParticipants = (project) => [
+        project.projectManager,
+        project.primarySponsor,
+        project.submittedBy,
+        project.createdBy,
+        project.owner,
+        project.projectOwner,
+        project.sponsor,
+        ...(Array.isArray(project.assignedParticipants) ? project.assignedParticipants : []),
+        ...(Array.isArray(project.participants) ? project.participants : []),
+        ...(Array.isArray(project.assignedTo) ? project.assignedTo : [project.assignedTo]),
+        ...(Array.isArray(project.teamMembers) ? project.teamMembers : [])
+      ].filter(Boolean);
+      const canViewProject = (project) => project.status !== "Draft" || currentUserProfile.isAdmin || project.createdBy === currentUserProfile.name || project.submittedBy === currentUserProfile.name;
+      const isAssignedToCurrentUser = (project) => {
+        const currentUserName = normalisePersonName(currentUserProfile.name);
+        return getProjectParticipants(project).some((person) => normalisePersonName(person) === currentUserName);
+      };
       const canResumeProject = (project) => project.status === "Draft" && !isSubmittedWorkflowProject(project) && (currentUserProfile.isAdmin || project.createdBy === currentUserProfile.name);
       const isHomepagePersonalView = pageKey === "portfolio" && showHomepageInvolvedOnly;
 
       const accessibleProjects = useMemo(() => projects.filter((project) => canViewProject(project)), [projects]);
 
       const filteredProjects = useMemo(() => accessibleProjects.filter((project) => {
-        const haystack = [project.name, project.department, project.projectManager, project.primarySponsor, project.strategicPillar].join(" ").toLowerCase();
+        const haystack = [project.name, project.department, project.projectManager, project.primarySponsor, project.submittedBy, project.strategicPillar].join(" ").toLowerCase();
         const matchesSearch = !search || haystack.includes(search.toLowerCase());
         const matchesStatus = statusFilter === "All statuses" || getLifecycleDisplayStatus(project).label === statusFilter;
         const matchesDepartment = departmentFilter === "All departments" || project.department === departmentFilter;
         const matchesPm = pmFilter === "All PMs" || project.projectManager === pmFilter;
-        const matchesSponsor = sponsorFilter === "All sponsors" || project.primarySponsor === sponsorFilter;
+        const matchesSponsor = sponsorFilter === "All submitters" || (project.submittedBy || project.primarySponsor) === sponsorFilter;
         const matchesView = isHomepagePersonalView
           ? isAssignedToCurrentUser(project)
           : true;
@@ -3532,7 +3800,7 @@
         const getSortValue = (project, key) => {
           if (key === "completionPercentage") return project.completionPercentage;
           if (key === "status") return getLifecycleDisplayStatus(project).label.toLowerCase();
-          if (key === "tshirtSize") return project.tshirtSize;
+          if (key === "tshirtSize") return getProjectSizeLabel(project.tshirtSize);
           return `${project[key] || ""}`.toLowerCase();
         };
 
@@ -3548,7 +3816,7 @@
 
       const departments = [...new Set(accessibleProjects.map((project) => project.department))];
       const managers = [...new Set(accessibleProjects.map((project) => project.projectManager))];
-      const sponsors = [...new Set(accessibleProjects.map((project) => project.primarySponsor))];
+      const sponsors = [...new Set(accessibleProjects.map((project) => project.submittedBy || project.primarySponsor).filter(Boolean))];
       const portfolioStatuses = [...new Set(accessibleProjects.map((project) => getLifecycleDisplayStatus(project).label))];
       const reportProjects = accessibleProjects.filter((project) => project.status !== "Draft");
       const isPortfolioPage = pageKey === "portfolio";
@@ -3603,10 +3871,9 @@
         { key: "name", label: "Project name" },
         { key: "status", label: "Status" },
         { key: "projectManager", label: "Manager" },
-        { key: "primarySponsor", label: "Sponsor" },
+        { key: "submittedBy", label: "Submitted by" },
         { key: "department", label: "Department" },
-        { key: "tshirtSize", label: "Size" },
-        { key: "completionPercentage", label: "Completion" }
+        { key: "tshirtSize", label: "Size" }
       ];
 
       const onChange = (event) => {
@@ -3670,7 +3937,7 @@
         setStatusFilter("All statuses");
         setDepartmentFilter("All departments");
         setPmFilter("All PMs");
-        setSponsorFilter("All sponsors");
+        setSponsorFilter("All submitters");
         if (isPortfolioHomeView) {
           setShowHomepageInvolvedOnly(false);
         }
@@ -3746,16 +4013,20 @@
         const storedDraftState = getStoredDraftState();
         const fallbackValues = project.draftFormValues || normaliseFormValues({
           projectName: project.name,
-          primarySponsor: project.primarySponsor,
-          startDate: project.startDate || "",
-          targetEndDate: project.targetEndDate || "",
-          strategicPillar: project.strategicPillar,
+          submittedBy: project.submittedBy || project.createdBy || project.primarySponsor || currentUserProfile.name,
           department: project.department !== "To be confirmed" ? project.department : "",
           budgetBand: intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "",
           clientSensitiveData: project.clientSensitiveDataLabel === "Yes" ? "yes" : project.clientSensitiveDataLabel === "No" ? "no" : "",
-          audienceType: project.projectType === "Client-facing initiative" ? "client" : project.projectType === "Internal initiative" ? "internal" : project.projectType === "Hybrid initiative" ? "hybrid" : "",
-          strategicImportance: intakeOptions.strategicImportance.find((item) => item.label === project.strategicPriorityLabel)?.value || "",
-          projectDescription: project.businessObjective !== "Business objective still being captured." ? project.businessObjective : ""
+          audienceVisibility: project.audienceVisibility || (project.projectType === "Client-facing initiative" ? "client-only" : project.projectType === "Internal initiative" ? "internal-only" : project.projectType === "Hybrid initiative" ? "internal-and-client" : ""),
+          projectObjective: project.projectObjective || (project.businessObjective !== "Business objective still being captured." ? project.businessObjective : ""),
+          strategicAlignment: project.strategicAlignment || "",
+          valueBenefits: project.valueBenefits || "",
+          costResourceEfficiency: project.costResourceEfficiency || "",
+          riskCompliance: project.riskCompliance || "",
+          timeSensitivity: project.timeSensitivity || "",
+          feasibility: project.feasibility || "",
+          confidenceScore: project.confidenceScore || "",
+          isMandatoryProject: project.isMandatoryProject || ""
         });
         const resumeValues = storedDraftState.editingDraftId === project.id ? storedDraftState.formValues : fallbackValues;
 
@@ -3901,7 +4172,7 @@
                     <span className="count-badge">{pageCountBadge}</span>
                   </div>
                 </div>
-                <button className="primary-btn" type="button" onClick={startNewProject}>+ New project</button>
+                <button className="primary-btn" type="button" onClick={startNewProject}>New Proposed Project</button>
               </header>
 
                 <div className="content-area">
@@ -3931,7 +4202,7 @@
                       <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{portfolioStatuses.map((status) => <option key={status}>{status}</option>)}</select>
                       <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}><option>All departments</option>{departments.map((department) => <option key={department}>{department}</option>)}</select>
                       <select value={pmFilter} onChange={(event) => setPmFilter(event.target.value)}><option>All PMs</option>{managers.map((manager) => <option key={manager}>{manager}</option>)}</select>
-                      <select value={sponsorFilter} onChange={(event) => setSponsorFilter(event.target.value)}><option>All sponsors</option>{sponsors.map((sponsor) => <option key={sponsor}>{sponsor}</option>)}</select>
+                      <select value={sponsorFilter} onChange={(event) => setSponsorFilter(event.target.value)}><option>All submitters</option>{sponsors.map((sponsor) => <option key={sponsor}>{sponsor}</option>)}</select>
                       <button className="secondary-btn clear-filters-btn" type="button" onClick={clearFilters}>Clear filters</button>
                     </section>
 
@@ -3975,14 +4246,13 @@
                                           )}
                                         </div>
                                       </div>
-                                      <div className="project-sub">{project.projectType} Â· Phase: {displayStatus.label}</div>
+                                      <div className="project-sub">{project.projectType} · Phase: {displayStatus.label}</div>
                                     </td>
                                     <td><span className={`status-pill ${getStatusClass(displayStatus.label)}`}>{displayStatus.label}</span></td>
                                     <td><span className="table-person-name">{project.projectManager}</span></td>
-                                    <td><span className="table-person-name">{project.primarySponsor}</span></td>
+                                    <td><span className="table-person-name">{project.submittedBy || project.primarySponsor}</span></td>
                                     <td>{project.department}</td>
-                                    <td><div className="size-cell"><span className="size-badge">{project.tshirtSize}</span><span className="size-caption">{getTshirtSizeHint(project.tshirtSize)}</span></div></td>
-                                    <td><div className="progress-wrap"><div className="progress-track"><div className={`progress-bar ${getProgressClass(displayStatus.label)}`} style={{ width: `${project.completionPercentage}%` }}></div></div><span className="progress-value">{project.completionPercentage}%</span></div></td>
+                                    <td><span className="size-badge">{getProjectSizeLabel(project.tshirtSize)}</span></td>
                                   </tr>
                                 );
                               })}
@@ -4002,69 +4272,67 @@
               <div>
                 <p className="eyebrow">Project intake form</p>
                 <h3 id="projectIntakeTitle">New project brief</h3>
-                <p className="project-brief-copy">Fields marked ? are required to unlock submission.</p>
+                <p className="project-brief-copy">Fields marked * are required to unlock submission.</p>
               </div>
               <button className="icon-btn" type="button" aria-label="Close intake form" onClick={closeIntakeModal}><Icon icon="close" className="icon-only-svg" /></button>
             </div>
 
             <form className="project-form project-brief-form" onSubmit={submitProject}>
-              <section className="form-progress-card">
-                <div className="form-progress-header">
-                  <strong>Brief completion</strong>
-                  <span>{intakeProgress}%</span>
-                </div>
-                <div className="form-progress-track">
-                  <div className="form-progress-fill" style={{ width: `${intakeProgress}%` }}></div>
-                </div>
-              </section>
-
               <div className="form-grid">
                 <label>
-                  <FormFieldLabel title="Project Name" required />
+                  <FormFieldLabel title="Project Name" required helper={fieldHelpText.projectName} />
                   <input type="text" name="projectName" value={formValues.projectName} onChange={onChange} required placeholder="Use a short, clear name" />
                 </label>
                 <label>
-                  <FormFieldLabel title="Primary Sponsor" required />
-                  <input type="text" name="primarySponsor" value={formValues.primarySponsor} onChange={onChange} required placeholder="Who is sponsoring this project?" />
+                  <FormFieldLabel title="Submitted By" required helper={fieldHelpText.submittedBy} />
+                  <input type="text" name="submittedBy" value={formValues.submittedBy} onChange={onChange} required placeholder="Who is submitting this brief?" />
                 </label>
                 <label>
-                  <FormFieldLabel title="Start Date" required />
+                  <FormFieldLabel title="Start Date" required helper={fieldHelpText.startDate} />
                   <input type="date" name="startDate" value={formValues.startDate} onChange={onChange} required />
                 </label>
                 <label>
-                  <FormFieldLabel title="Target End Date" required />
+                  <FormFieldLabel title="Target End Date" required helper={fieldHelpText.targetEndDate} />
                   <input type="date" name="targetEndDate" value={formValues.targetEndDate} onChange={onChange} required />
                 </label>
                 <label>
-                  <FormFieldLabel title="Strategic Pillar" required />
-                  <select className={!formValues.strategicPillar ? "is-placeholder" : ""} name="strategicPillar" value={formValues.strategicPillar} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.strategicPillars.map((item) => <option key={item} value={item}>{item}</option>)}</select>
-                </label>
-                <label>
-                  <FormFieldLabel title="Department" required />
+                  <FormFieldLabel title="Department" required helper={fieldHelpText.department} />
                   <select className={!formValues.department ? "is-placeholder" : ""} name="department" value={formValues.department} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select>
                 </label>
                 <label>
-                  <FormFieldLabel title="Estimated Budget" required driver />
-                  <select className={!formValues.budgetBand ? "is-placeholder" : ""} name="budgetBand" value={formValues.budgetBand} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <FormFieldLabel title="Estimated Budget" helper={fieldHelpText.budgetBand} />
+                  <select className={!formValues.budgetBand ? "is-placeholder" : ""} name="budgetBand" value={formValues.budgetBand} onChange={onChange}><option value="">Optional</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
-                  <FormFieldLabel title="Client Sensitive Data" required driver />
-                  <select className={!formValues.clientSensitiveData ? "is-placeholder" : ""} name="clientSensitiveData" value={formValues.clientSensitiveData} onChange={onChange} required><option value="" disabled hidden>Choose one</option><option value="no">No</option><option value="yes">Yes</option></select>
+                  <FormFieldLabel title="Client Sensitive Data" required helper={fieldHelpText.clientSensitiveData} />
+                  <select className={!formValues.clientSensitiveData ? "is-placeholder" : ""} name="clientSensitiveData" value={formValues.clientSensitiveData} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.clientSensitiveDataOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
-                  <FormFieldLabel title="Audience Type" required driver />
-                  <select className={!formValues.audienceType ? "is-placeholder" : ""} name="audienceType" value={formValues.audienceType} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.audienceType.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <FormFieldLabel title="Audience Visibility" required helper={fieldHelpText.audienceVisibility} />
+                  <select className={!formValues.audienceVisibility ? "is-placeholder" : ""} name="audienceVisibility" value={formValues.audienceVisibility} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.audienceVisibility.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
                 <label>
-                  <FormFieldLabel title="Strategic Priority" required driver />
-                  <select className={!formValues.strategicImportance ? "is-placeholder" : ""} name="strategicImportance" value={formValues.strategicImportance} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.strategicImportance.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                  <FormFieldLabel title="Is this project mandatory?" required helper={fieldHelpText.isMandatoryProject} />
+                  <select className={!formValues.isMandatoryProject ? "is-placeholder" : ""} name="isMandatoryProject" value={formValues.isMandatoryProject} onChange={onChange} required><option value="" disabled hidden>Choose one</option>{intakeOptions.mandatoryProject.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 </label>
               </div>
 
               <label className="full-width">
-                <FormFieldLabel title="Project Description" required />
-                <textarea name="projectDescription" rows="5" value={formValues.projectDescription} onChange={onChange} required placeholder="What is this project, why do we need it, and what should it achieve?"></textarea>
+                <FormFieldLabel title="Project Objective" required helper={fieldHelpText.projectObjective} />
+                <textarea name="projectObjective" rows="5" value={formValues.projectObjective} onChange={onChange} required placeholder="Explain the outcome you want in simple words."></textarea>
               </label>
+
+              <div className="form-grid score-field-grid">
+                {scoreFieldDefinitions.map((field) => (
+                  <label key={field.name}>
+                    <FormFieldLabel title={field.title} required helper={field.helper} />
+                    <select className={!formValues[field.name] ? "is-placeholder" : ""} name={field.name} value={formValues[field.name]} onChange={onChange} required>
+                      <option value="" disabled hidden>Choose 0 to 5</option>
+                      {field.options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
 
               {submissionReview?.type === "error" && (
                 <div className="submission-review-panel">
@@ -4076,12 +4344,7 @@
               {draftMessage && <p className="form-note">{draftMessage}</p>}
 
               <div className="project-brief-footer">
-                <div className="project-reference">
-                  <span>Project reference</span>
-                  <strong>{projectReferencePreview}</strong>
-                </div>
                 <div className="form-actions">
-                <button className="secondary-btn" type="button" onClick={saveDraft}>{editingDraftId ? "Update draft" : "Save draft"}</button>
                 <button className="primary-btn" type="submit" disabled={!isComplete(formValues)}>Submit Application</button>
                 </div>
               </div>
@@ -4099,17 +4362,16 @@
               </div>
               <div className="submission-review-panel submission-review-neutral">
                 <p>You have started filling in this project brief.</p>
-                <p>Do you want to save it as a draft before closing?</p>
+                <p>You can keep editing, or close without submitting.</p>
               </div>
               <div className="form-actions">
                 <button className="secondary-btn" type="button" onClick={() => setIsIntakeExitPromptOpen(false)}>Keep editing</button>
                 <button className="secondary-btn" type="button" onClick={discardIntakeAndClose}>Close without saving</button>
-                <button className="primary-btn" type="button" onClick={saveDraftAndClose}>Save draft and close</button>
               </div>
             </div>
           </Modal>
 
-          {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} />}
+          {isPortfolioPage && <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} canResumeDraft={selectedProject ? canResumeProject(selectedProject) : false} onResumeDraft={resumeDraftProject} onSaveProject={saveProjectEdits} />}
           {isPortfolioPage && <LifecycleGovernanceModal project={selectedLifecycleProject} onClose={() => setSelectedLifecycleProject(null)} onSaveLifecycleProject={saveLifecycleProject} canReviewPmo={isPmoAdminUser()} />}
           {isPortfolioPage && <ProfileModal personName={selectedPersonName} profile={currentProfile} stats={currentProfileStats} onClose={() => setSelectedPersonName("")} onSave={saveProfile} />}
           {showBackToTop && <button className="back-to-top-btn" type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Back to top</button>}
@@ -4132,63 +4394,6 @@
       }
       throw error;
     }
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
-  
-
-
   
 
 
