@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Power BI Project Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20261020-11">
+</head>
+<body class="power-bi-report-page">
+  <main id="powerBiProjectReport" class="power-bi-report-shell" aria-live="polite"></main>
+  <script src="app-config.js?v=20261020-1"></script>
+  <script>
+    (function () {
+      const root = document.getElementById("powerBiProjectReport");
+      const query = new URLSearchParams(window.location.search);
+      const requestedProjectId = query.get("project");
+      const storedProjectsKey = "mks-portfolio-projects";
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+      const getStoredProjects = () => {
+        try {
+          const stored = JSON.parse(window.localStorage.getItem(storedProjectsKey) || "[]");
+          return Array.isArray(stored) ? stored : [];
+        } catch (error) {
+          return [];
+        }
+      };
+
+      const defaults = window.APP_CONFIG?.mockProjects || [];
+      const stored = getStoredProjects();
+      const defaultProject = defaults.find((item) => String(item.id) === String(requestedProjectId));
+      const storedProject = stored.find((item) => String(item.id) === String(requestedProjectId));
+      const project = defaultProject || storedProject ? { ...(defaultProject || {}), ...(storedProject || {}) } : null;
+
+      if (!project) {
+        root.innerHTML = `
+          <section class="power-bi-report-empty">
+            <h1>Project report not found</h1>
+            <p>The requested project is not available in this portfolio.</p>
+            <p><a class="power-bi-report-back" href="index.html">Return to Project Portfolio</a></p>
+          </section>`;
+        return;
+      }
+
+      const displayValue = (value, fallback = "Not provided") => value === undefined || value === null || value === "" ? fallback : value;
+      const formatCurrency = (value) => {
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue)) return displayValue(value);
+        return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(numericValue);
+      };
+      const formatDate = (value) => {
+        if (!value) return "Not provided";
+        const date = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(date.getTime())) return displayValue(value);
+        return date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+      };
+      const formatStage = (value) => value ? `${value}`.charAt(0).toUpperCase() + `${value}`.slice(1) : "Not provided";
+      const getProjectSize = (value) => ({ S: "Small", M: "Medium", L: "Large", XL: "Large" }[value] || displayValue(value));
+      const getBulletItems = (value) => String(value || "").split(/\r?\n/).map((item) => item.replace(/^\s*[-*\u2022]\s*/, "").trim()).filter(Boolean);
+      const listMarkup = (value) => {
+        const items = getBulletItems(value);
+        return items.length
+          ? `<ul class="power-bi-report-list">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+          : "<p>Not provided</p>";
+      };
+      const ragClass = (value) => `power-bi-rag-${String(value || "").toLowerCase()}`;
+      const ragValues = [project.scheduleRag, project.resourceRag, project.scopeRag].map((item) => String(item || "").toLowerCase());
+      const overallRag = ragValues.includes("red") ? "Red" : ragValues.includes("amber") ? "Amber" : ragValues.includes("green") ? "Green" : "Not provided";
+      const progress = Math.max(0, Math.min(100, Number(project.completionPercentage) || 0));
+      const decisionRequired = project.decisionRequired === "yes" ? "Yes" : project.decisionRequired === "no" ? "No" : "Not provided";
+      const remainingCost = project.remainingCost !== undefined && project.remainingCost !== ""
+        ? project.remainingCost
+        : Math.max(0, Number(project.agreedCost || 0) - Number(project.currentCost || 0));
+
+      document.title = `${project.name} | Power BI Project Report`;
+      root.innerHTML = `
+        <header class="power-bi-report-topbar">
+          <div class="power-bi-report-brand">
+            <img src="assets/mks-logo.svg" alt="Moore Kingston Smith logo">
+            <div><strong>Power BI Project Report</strong><span>MyMKSWay Portfolio</span></div>
+          </div>
+          <div class="power-bi-report-actions">
+            <a class="power-bi-report-back" href="index.html">Back to Portfolio</a>
+            <button class="power-bi-report-print" type="button" onclick="window.print()">Print / Save PDF</button>
+          </div>
+        </header>
+
+        <section class="power-bi-report-hero">
+          <div>
+            <p class="power-bi-report-eyebrow">Project performance report</p>
+            <div class="power-bi-report-title-row"><h1>${escapeHtml(project.name)}</h1></div>
+            <div class="power-bi-report-status-row">
+              <span class="power-bi-report-chip power-bi-report-chip-active">${escapeHtml(project.status)}</span>
+              <span class="power-bi-report-chip">${escapeHtml(formatStage(project.roadmapPhase))}</span>
+              <span class="power-bi-rag-pill ${ragClass(overallRag)}">Overall RAG: ${escapeHtml(overallRag)}</span>
+            </div>
+          </div>
+          <div class="power-bi-report-period">
+            <span>Reporting period</span><strong>${escapeHtml(displayValue(project.reportingPeriod))}</strong>
+            <span style="margin-top:12px">Update date</span><strong>${escapeHtml(formatDate(project.reportingUpdateDate))}</strong>
+          </div>
+        </section>
+
+        <section class="power-bi-report-kpis" aria-label="Project key performance indicators">
+          <article class="power-bi-report-kpi"><span>Delivery progress</span><strong>${progress}%</strong><div class="power-bi-progress-track"><span style="width:${progress}%"></span></div></article>
+          <article class="power-bi-report-kpi"><span>Target end date</span><strong>${escapeHtml(formatDate(project.targetEndDate))}</strong><small>Started ${escapeHtml(formatDate(project.startDate))}</small></article>
+          <article class="power-bi-report-kpi"><span>Current cost</span><strong>${escapeHtml(formatCurrency(project.currentCost))}</strong><small>of ${escapeHtml(formatCurrency(project.agreedCost))} agreed</small></article>
+          <article class="power-bi-report-kpi"><span>Remaining cost</span><strong>${escapeHtml(formatCurrency(remainingCost))}</strong><small>Current forecast position</small></article>
+          <article class="power-bi-report-kpi"><span>Priority</span><strong>${escapeHtml(displayValue(project.overallScore))} / 100</strong><small>${escapeHtml(getProjectSize(project.tshirtSize))} project</small></article>
+        </section>
+
+        <div class="power-bi-report-grid">
+          <section class="power-bi-report-panel power-bi-report-panel-wide">
+            <h2>PM commentary</h2>
+            <p>${escapeHtml(displayValue(project.pmCommentary))}</p>
+          </section>
+
+          <section class="power-bi-report-panel">
+            <h2>Key accomplishments</h2>
+            ${listMarkup(project.keyAccomplishments)}
+          </section>
+
+          <section class="power-bi-report-panel">
+            <h2>Activities for next period</h2>
+            ${listMarkup(project.activitiesNextPeriod)}
+          </section>
+
+          <section class="power-bi-report-panel power-bi-report-panel-wide">
+            <h2>Delivery commentary</h2>
+            <div class="power-bi-report-rag-grid">
+              ${[
+                ["Schedule", project.scheduleRag, project.scheduleReason],
+                ["Resource", project.resourceRag, project.resourceReason],
+                ["Scope", project.scopeRag, project.scopeReason]
+              ].map(([label, rag, reason]) => `
+                <article class="power-bi-report-rag">
+                  <h3>${escapeHtml(label)}</h3>
+                  <span class="power-bi-rag-pill ${ragClass(rag)}">${escapeHtml(displayValue(rag))}</span>
+                  <p>${escapeHtml(displayValue(reason))}</p>
+                </article>`).join("")}
+            </div>
+          </section>
+
+          <section class="power-bi-report-panel power-bi-report-panel-wide power-bi-report-decision">
+            <h2>Decision position</h2>
+            <dl class="power-bi-report-decision-meta">
+              <dt>Decision required</dt><dd>${escapeHtml(decisionRequired)}</dd>
+              <dt>Decision by when</dt><dd>${escapeHtml(displayValue(project.decisionByWhen))}</dd>
+              <dt>Decision needed</dt><dd>${escapeHtml(displayValue(project.decisionSummary || project.steeringDecisionNeeded))}</dd>
+              <dt>Impact if no decision</dt><dd>${escapeHtml(displayValue(project.impactIfNoDecision))}</dd>
+            </dl>
+          </section>
+        </div>
+
+        <footer class="power-bi-report-footer">
+          <span>Project manager: ${escapeHtml(displayValue(project.projectManager))}</span>
+          <span>Source: Latest Power BI Reporting Update saved in MyMKSWay</span>
+        </footer>`;
+    })();
+  </script>
+</body>
+</html>

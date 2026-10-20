@@ -1,4 +1,4 @@
-﻿    const { useEffect, useMemo, useState } = React;
+    const { useEffect, useMemo, useState } = React;
     const { sidebarNav, intakeOptions, documentTemplates, mockProjects, currentUser: currentUserProfile } = window.APP_CONFIG;
     const { assess, rules: scoringRules } = window.ScoringEngine;
     const draftStorageKey = "mks-intake-draft";
@@ -200,7 +200,6 @@
       }
       return normalised;
     }
-
     function getStoredSettings() {
       try {
         const stored = window.localStorage.getItem(settingsStorageKey);
@@ -907,9 +906,14 @@
           return mockProjects.map(hydrateProject);
         }
 
-        const seededIds = new Set(mockProjects.map((project) => project.id));
-        const customProjects = parsed.filter((project) => !seededIds.has(project.id));
-        const hydratedProjects = [...customProjects, ...mockProjects].map(hydrateProject);
+        const seededIds = new Set(mockProjects.map((project) => String(project.id)));
+        const storedProjectsById = new Map(parsed.map((project) => [String(project.id), project]));
+        const customProjects = parsed.filter((project) => !seededIds.has(String(project.id)));
+        const seededProjects = mockProjects.map((project) => ({
+          ...project,
+          ...(storedProjectsById.get(String(project.id)) || {})
+        }));
+        const hydratedProjects = [...customProjects, ...seededProjects].map(hydrateProject);
         return repairKnownSubmittedProjects(hydratedProjects);
       } catch {
         return mockProjects.map(hydrateProject);
@@ -1391,46 +1395,166 @@
 
     function ProjectDetailModal({ project, onClose, canResumeDraft, onResumeDraft, onSaveProject }) {
       const [isEditing, setIsEditing] = useState(false);
+      const [activeDetailTab, setActiveDetailTab] = useState("details");
       const [editValues, setEditValues] = useState(defaultForm);
 
-      useEffect(() => {
-        if (!project) {
-          setIsEditing(false);
-          setEditValues(defaultForm);
-          return;
-        }
+      const getReportingPeriodRange = (sourceProject) => {
+        const range = {
+          from: sourceProject?.reportingPeriodFrom || "",
+          to: sourceProject?.reportingPeriodTo || ""
+        };
+        if (range.from || range.to || !sourceProject?.reportingPeriod) return range;
 
-        const budgetBandValue = intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "";
-        const clientSensitiveDataValue = project.clientSensitiveDataLabel === "Yes"
-          ? "yes"
-          : project.clientSensitiveDataLabel === "No"
-            ? "no"
-            : project.clientSensitiveDataLabel === "Unsure"
-              ? "unsure"
-              : "";
-        const audienceVisibilityValue = project.audienceVisibility
-          || (project.audienceVisibilityLabel === "Internal only"
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const match = String(sourceProject.reportingPeriod).trim().match(/^([A-Za-z]+)\s+(\d{4})$/);
+        const monthIndex = match ? monthNames.findIndex((month) => month.toLowerCase() === match[1].toLowerCase()) : -1;
+        if (monthIndex < 0) return range;
+
+        const year = Number(match[2]);
+        const month = String(monthIndex + 1).padStart(2, "0");
+        const lastDay = String(new Date(year, monthIndex + 1, 0).getDate()).padStart(2, "0");
+        return { from: `${year}-${month}-01`, to: `${year}-${month}-${lastDay}` };
+      };
+
+      const getReportingPeriodLabel = (from, to, fallback = "") => {
+        const formatDate = (value) => {
+          if (!value) return "";
+          const date = new Date(`${value}T00:00:00`);
+          return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+        };
+        if (!from && !to) return fallback;
+        if (from && to) {
+          const fromDate = new Date(`${from}T00:00:00`);
+          const toDate = new Date(`${to}T00:00:00`);
+          if (!Number.isNaN(fromDate.getTime()) && !Number.isNaN(toDate.getTime()) && fromDate.getMonth() === toDate.getMonth() && fromDate.getFullYear() === toDate.getFullYear()) {
+            return fromDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+          }
+          return `${formatDate(from)} to ${formatDate(to)}`;
+        }
+        return from ? `From ${formatDate(from)}` : `To ${formatDate(to)}`;
+      };
+
+      function buildProjectDetailEditValues(sourceProject) {
+        if (!sourceProject) return defaultForm;
+
+        const budgetBandValue = sourceProject.budgetBand
+          || intakeOptions.budgetBands.find((item) => item.label === sourceProject.budget)?.value
+          || "";
+        const clientSensitiveDataValue = sourceProject.clientSensitiveData
+          || (sourceProject.clientSensitiveDataLabel === "Yes"
+            ? "yes"
+            : sourceProject.clientSensitiveDataLabel === "No"
+              ? "no"
+              : sourceProject.clientSensitiveDataLabel === "Unsure"
+                ? "unsure"
+                : "");
+        const audienceVisibilityValue = sourceProject.audienceVisibility
+          || (sourceProject.audienceVisibilityLabel === "Internal only"
             ? "internal-only"
-            : project.audienceVisibilityLabel === "Client only"
+            : sourceProject.audienceVisibilityLabel === "Client only"
               ? "client-only"
-              : project.audienceVisibilityLabel === "Internal and client"
+              : sourceProject.audienceVisibilityLabel === "Internal and client"
                 ? "internal-and-client"
                 : "");
+        const sourceReportingPeriodRange = getReportingPeriodRange(sourceProject);
 
-        setIsEditing(false);
-        setEditValues(normaliseFormValues({
-          projectName: project.name || "",
-          submittedBy: project.submittedBy || project.createdBy || project.primarySponsor || "",
-          department: project.department || "",
+        const normalisedValues = normaliseFormValues({
+          projectName: sourceProject.name || "",
+          projectManager: sourceProject.projectManager || "",
+          primarySponsor: sourceProject.primarySponsor || "",
+          submittedBy: sourceProject.submittedBy || sourceProject.createdBy || "",
+          businessOwner: sourceProject.businessOwner || "",
+          department: sourceProject.department || "",
+          startDate: sourceProject.startDate || "",
+          targetEndDate: sourceProject.targetEndDate || "",
+          priority: sourceProject.priority || sourceProject.strategicPriorityLabel || "",
           budgetBand: budgetBandValue,
           clientSensitiveData: clientSensitiveDataValue,
           audienceVisibility: audienceVisibilityValue,
-          projectObjective: project.projectObjective || project.businessObjective || "",
-          confidenceScore: project.confidenceScore || "",
-          isMandatoryProject: project.isMandatoryProject || "",
-          projectManager: project.projectManager || ""
-        }));
+          isMandatoryProject: sourceProject.isMandatoryProject || "",
+          projectDescription: sourceProject.projectDescription || sourceProject.draftFormValues?.projectDescription || "",
+          detailSummary: sourceProject.detailSummary || sourceProject.projectObjective || sourceProject.businessObjective || "",
+          projectObjective: sourceProject.projectObjective || sourceProject.businessObjective || "",
+          projectScope: sourceProject.projectScope || "",
+          inScope: sourceProject.inScope || sourceProject.projectScope || "",
+          outOfScope: sourceProject.outOfScope || "",
+          expectedBenefits: sourceProject.expectedBenefits || sourceProject.expectedOutcomesBenefits || "",
+          expectedOutcomes: sourceProject.expectedOutcomes || "",
+          expectedOutcomesBenefits: sourceProject.expectedOutcomesBenefits || "",
+          strategicAlignment: sourceProject.strategicAlignment || "",
+          valueBenefits: sourceProject.valueBenefits || "",
+          costResourceEfficiency: sourceProject.costResourceEfficiency || "",
+          riskCompliance: sourceProject.riskCompliance || "",
+          timeSensitivity: sourceProject.timeSensitivity || "",
+          feasibility: sourceProject.feasibility || "",
+          confidenceScore: sourceProject.confidenceScore || "",
+          nextKeyMilestone: sourceProject.nextKeyMilestone || "",
+          keyDependencies: sourceProject.keyDependencies || "",
+          actualCompletionDate: sourceProject.actualCompletionDate || "",
+          approvalStatusDecision: sourceProject.approvalStatusDecision || "",
+          agreedCost: sourceProject.agreedCost ?? "",
+          currentCost: sourceProject.currentCost ?? "",
+          remainingCost: sourceProject.remainingCost ?? "",
+          reportingPeriod: sourceProject.reportingPeriod || "",
+          reportingPeriodFrom: sourceReportingPeriodRange.from,
+          reportingPeriodTo: sourceReportingPeriodRange.to,
+          reportingUpdateDate: sourceProject.reportingUpdateDate || "",
+          pmCommentary: sourceProject.pmCommentary || "",
+          keyAccomplishments: sourceProject.keyAccomplishments || "",
+          activitiesNextPeriod: sourceProject.activitiesNextPeriod || "",
+          decisionRequired: sourceProject.decisionRequired || "",
+          decisionByWhen: sourceProject.decisionByWhen || "",
+          impactIfNoDecision: sourceProject.impactIfNoDecision || "",
+          decisionSummary: sourceProject.decisionSummary || sourceProject.steeringDecisionNeeded || "",
+          scheduleRag: sourceProject.scheduleRag || "",
+          scheduleReason: sourceProject.scheduleReason || "",
+          resourceRag: sourceProject.resourceRag || "",
+          resourceReason: sourceProject.resourceReason || "",
+          scopeRag: sourceProject.scopeRag || "",
+          scopeReason: sourceProject.scopeReason || ""
+        });
+
+        return {
+          ...normalisedValues,
+          projectDescription: sourceProject.projectDescription || sourceProject.draftFormValues?.projectDescription || "",
+          detailSummary: sourceProject.detailSummary || sourceProject.projectObjective || sourceProject.businessObjective || "",
+          projectScope: sourceProject.projectScope || "",
+          inScope: sourceProject.inScope || sourceProject.projectScope || "",
+          outOfScope: sourceProject.outOfScope || "",
+          expectedBenefits: sourceProject.expectedBenefits || sourceProject.expectedOutcomesBenefits || "",
+          expectedOutcomes: sourceProject.expectedOutcomes || "",
+          expectedOutcomesBenefits: sourceProject.expectedOutcomesBenefits || "",
+          agreedCost: sourceProject.agreedCost ?? "",
+          currentCost: sourceProject.currentCost ?? "",
+          remainingCost: sourceProject.remainingCost ?? "",
+          reportingPeriod: sourceProject.reportingPeriod || "",
+          reportingPeriodFrom: sourceReportingPeriodRange.from,
+          reportingPeriodTo: sourceReportingPeriodRange.to,
+          reportingUpdateDate: sourceProject.reportingUpdateDate || "",
+          pmCommentary: sourceProject.pmCommentary || "",
+          keyAccomplishments: sourceProject.keyAccomplishments || "",
+          activitiesNextPeriod: sourceProject.activitiesNextPeriod || "",
+          decisionRequired: sourceProject.decisionRequired || "",
+          decisionByWhen: sourceProject.decisionByWhen || "",
+          impactIfNoDecision: sourceProject.impactIfNoDecision || "",
+          decisionSummary: sourceProject.decisionSummary || sourceProject.steeringDecisionNeeded || "",
+          scheduleRag: sourceProject.scheduleRag || "",
+          scheduleReason: sourceProject.scheduleReason || "",
+          resourceRag: sourceProject.resourceRag || "",
+          resourceReason: sourceProject.resourceReason || "",
+          scopeRag: sourceProject.scopeRag || "",
+          scopeReason: sourceProject.scopeReason || ""
+        };
+      }
+
+      useEffect(() => {
+        setIsEditing(false);
+        setEditValues(buildProjectDetailEditValues(project));
       }, [project]);
+
+      useEffect(() => {
+        setActiveDetailTab("details");
+      }, [project?.id]);
 
       if (!project) {
         return <Modal isOpen={false} onClose={onClose} titleId="projectDetailTitle" />;
@@ -1438,24 +1562,134 @@
 
       const lifecycleRecord = buildLifecycleGovernanceRecord(project);
       const currentPhaseRecord = lifecycleRecord.phases.find((phase) => phase.key === lifecycleRecord.currentPhase) || lifecycleRecord.phases[0];
-      const showFutureSections = false;
       const canEditProject = !!currentUserProfile.isAdmin && typeof onSaveProject === "function";
+      const scoreAnswerFields = scoreFieldDefinitions;
+      const scoreValuesComplete = [...scoreDriverFields].every((fieldName) => editValues[fieldName] !== "" && editValues[fieldName] !== undefined);
+      const editedAssessment = scoreValuesComplete ? assess(buildAssessmentInput(editValues)) : null;
+      const reportingPeriodRange = getReportingPeriodRange(project);
+      const decisionFieldsDisabled = editValues.decisionRequired !== "yes";
+
+      const displayValue = (value) => {
+        if (value === undefined || value === null || value === "" || value === "To be confirmed") return "Not provided";
+        return value;
+      };
+
+      const formatProjectDate = (value, fallbackMonth, fallbackYear) => {
+        if (value) {
+          const date = new Date(`${value}T00:00:00`);
+          if (!Number.isNaN(date.getTime())) {
+            return date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+          }
+        }
+        if (fallbackMonth && fallbackYear) {
+          return new Date(fallbackYear, fallbackMonth - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+        }
+        return "Not provided";
+      };
+
+      const getScoreAnswer = (fieldName, value) => {
+        if (value === undefined || value === null || value === "") return "Not provided";
+        return scoreOptionSets[fieldName]?.find((item) => item.value === String(value))?.label || String(value);
+      };
+
+      const formatCurrency = (value) => {
+        if (value === undefined || value === null || value === "") return "Not provided";
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue)) return displayValue(value);
+        return new Intl.NumberFormat("en-GB", {
+          style: "currency",
+          currency: "GBP",
+          maximumFractionDigits: 0
+        }).format(numericValue);
+      };
+
+      const formatCompactCurrency = (value) => {
+        if (value === undefined || value === null || value === "") return "Not provided";
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue)) return displayValue(value);
+        if (Math.abs(numericValue) >= 1000) {
+          const compactValue = numericValue / 1000;
+          return `£${Number.isInteger(compactValue) ? compactValue : compactValue.toFixed(1)}k`;
+        }
+        return formatCurrency(numericValue);
+      };
+
+      const formatProjectShortDate = (value) => {
+        if (!value) return "Not provided";
+        const date = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(date.getTime())) return displayValue(value);
+        return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      };
+
+      const getScoreDescription = (fieldName, value) => {
+        const answer = getScoreAnswer(fieldName, value);
+        return answer === "Not provided" ? answer : answer.replace(/^\d+\s*[\u2013-]\s*/, "");
+      };
+
+      const jumpToDetailSection = (sectionId) => {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+
+      const getDecisionRequiredLabel = (value) => {
+        if (value === "yes") return "Yes";
+        if (value === "no") return "No";
+        return "Not provided";
+      };
+
+      const getTodayDateValue = () => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const getBulletItems = (value) => {
+        if (!value) return [];
+        const sourceItems = Array.isArray(value) ? value : String(value).split(/\r?\n/);
+        return sourceItems
+          .map((item) => String(item).replace(/^\s*[-*\u2022]\s*/, "").trim())
+          .filter(Boolean);
+      };
+
+      const approvalDecision = project.approvalStatusDecision
+        || (currentPhaseRecord.reviewStatus !== lifecycleReviewStatuses.notSubmitted ? currentPhaseRecord.reviewStatus : "");
+      const nextKeyMilestone = project.nextKeyMilestone || currentPhaseRecord.nextSteps?.[0] || "";
 
       const updateEditField = (name, value) => {
-        setEditValues((current) => ({
-          ...current,
-          [name]: value
-        }));
+        setEditValues((current) => {
+          const nextValues = { ...current, [name]: value };
+
+          if (name === "agreedCost" || name === "currentCost") {
+            const agreedCost = Number(name === "agreedCost" ? value : nextValues.agreedCost);
+            const currentCost = Number(name === "currentCost" ? value : nextValues.currentCost);
+            if (Number.isFinite(agreedCost) && Number.isFinite(currentCost)) {
+              nextValues.remainingCost = Math.max(0, agreedCost - currentCost);
+            }
+          }
+
+          return nextValues;
+        });
       };
 
       const saveProjectDetails = () => {
         const normalised = normaliseFormValues(editValues);
+        const timelineUpdates = normalised.startDate && normalised.targetEndDate ? getSubmittedTimeline(normalised) : {};
+        const scoringUpdates = editedAssessment
+          ? { overallScore: editedAssessment.score, tshirtSize: editedAssessment.tshirtSize }
+          : {};
+
         onSaveProject(project.id, {
           name: normalised.projectName,
           projectManager: normalised.projectManager,
-          primarySponsor: normalised.submittedBy,
+          primarySponsor: normalised.primarySponsor,
           submittedBy: normalised.submittedBy,
+          businessOwner: normalised.businessOwner,
           department: normalised.department,
+          startDate: normalised.startDate,
+          targetEndDate: normalised.targetEndDate,
+          priority: normalised.priority,
+          strategicPriorityLabel: normalised.priority,
           budget: getBudgetBandLabel(normalised.budgetBand),
           budgetBand: normalised.budgetBand,
           budgetBandLabel: getBudgetBandLabel(normalised.budgetBand),
@@ -1464,26 +1698,55 @@
           audienceVisibility: normalised.audienceVisibility,
           audienceType: getAudienceVisibilityLabel(normalised.audienceVisibility),
           audienceVisibilityLabel: getAudienceVisibilityLabel(normalised.audienceVisibility),
-          projectType: getProjectTypeFromAudience(normalised.audienceVisibility),
-          confidenceScore: normalised.confidenceScore,
+          projectType: project.projectType || getProjectTypeFromAudience(normalised.audienceVisibility),
           isMandatoryProject: normalised.isMandatoryProject,
           mandatoryProjectLabel: getMandatoryProjectLabel(normalised.isMandatoryProject),
+          projectDescription: editValues.projectDescription || "",
+          detailSummary: editValues.detailSummary || "",
           projectObjective: normalised.projectObjective,
           businessObjective: normalised.projectObjective,
+          projectScope: [editValues.inScope, editValues.outOfScope].filter(Boolean).join(" "),
+          inScope: editValues.inScope || "",
+          outOfScope: editValues.outOfScope || "",
+          expectedBenefits: editValues.expectedBenefits || "",
+          expectedOutcomes: editValues.expectedOutcomes || "",
+          expectedOutcomesBenefits: [editValues.expectedBenefits, editValues.expectedOutcomes].filter(Boolean).join(" "),
+          strategicAlignment: normalised.strategicAlignment,
+          valueBenefits: normalised.valueBenefits,
+          costResourceEfficiency: normalised.costResourceEfficiency,
+          riskCompliance: normalised.riskCompliance,
+          timeSensitivity: normalised.timeSensitivity,
+          feasibility: normalised.feasibility,
+          confidenceScore: normalised.confidenceScore,
+          nextKeyMilestone: normalised.nextKeyMilestone,
+          keyDependencies: normalised.keyDependencies,
+          actualCompletionDate: normalised.actualCompletionDate,
+          approvalStatusDecision: normalised.approvalStatusDecision,
+          agreedCost: editValues.agreedCost,
+          currentCost: editValues.currentCost,
+          remainingCost: editValues.remainingCost,
+          reportingPeriod: getReportingPeriodLabel(editValues.reportingPeriodFrom, editValues.reportingPeriodTo, editValues.reportingPeriod || ""),
+          reportingPeriodFrom: editValues.reportingPeriodFrom || "",
+          reportingPeriodTo: editValues.reportingPeriodTo || "",
+          reportingUpdateDate: activeDetailTab === "reporting" ? getTodayDateValue() : (editValues.reportingUpdateDate || ""),
+          pmCommentary: editValues.pmCommentary || "",
+          keyAccomplishments: editValues.keyAccomplishments || "",
+          activitiesNextPeriod: editValues.activitiesNextPeriod || "",
+          decisionRequired: editValues.decisionRequired || "",
+          decisionByWhen: editValues.decisionByWhen || "",
+          impactIfNoDecision: editValues.impactIfNoDecision || "",
+          decisionSummary: editValues.decisionSummary || "",
+          steeringDecisionNeeded: editValues.decisionSummary || "",
+          scheduleRag: editValues.scheduleRag || "",
+          scheduleReason: editValues.scheduleReason || "",
+          resourceRag: editValues.resourceRag || "",
+          resourceReason: editValues.resourceReason || "",
+          scopeRag: editValues.scopeRag || "",
+          scopeReason: editValues.scopeReason || "",
+          ...timelineUpdates,
+          ...scoringUpdates,
           draftFormValues: project.draftFormValues
-            ? {
-                ...project.draftFormValues,
-                projectName: normalised.projectName,
-                submittedBy: normalised.submittedBy,
-                department: normalised.department,
-                budgetBand: normalised.budgetBand,
-                clientSensitiveData: normalised.clientSensitiveData,
-                audienceVisibility: normalised.audienceVisibility,
-                projectObjective: normalised.projectObjective,
-                confidenceScore: normalised.confidenceScore,
-                isMandatoryProject: normalised.isMandatoryProject,
-                projectManager: normalised.projectManager
-              }
+            ? { ...project.draftFormValues, ...normalised }
             : project.draftFormValues
         });
         setIsEditing(false);
@@ -1491,106 +1754,250 @@
 
       return (
         <Modal isOpen={!!project} onClose={onClose} titleId="projectDetailTitle">
-          <div className="detail-modal">
-            <div className="detail-header">
-              <div>
-                <h2 id="projectDetailTitle" className="detail-title">{project.name}</h2>
+          <div className="detail-modal project-details-modal">
+            <div className="project-detail-topbar">
+              <div className="project-detail-tabs" role="tablist" aria-label="Project sections">
+                <button className={`project-detail-tab ${activeDetailTab === "details" ? "project-detail-tab-active" : ""}`} type="button" role="tab" aria-selected={activeDetailTab === "details"} onClick={() => setActiveDetailTab("details")}>Details</button>
+                <button className={`project-detail-tab ${activeDetailTab === "reporting" ? "project-detail-tab-active" : ""}`} type="button" role="tab" aria-selected={activeDetailTab === "reporting"} onClick={() => setActiveDetailTab("reporting")}>Power BI Reporting Update</button>
               </div>
-              <div className="detail-header-actions">
-                {canEditProject && !isEditing && <button className="secondary-btn" type="button" onClick={() => setIsEditing(true)}>Edit</button>}
-                {canEditProject && isEditing && (
-                  <>
-                    <button className="secondary-btn" type="button" onClick={() => { setIsEditing(false); setEditValues(normaliseFormValues({
-                      projectName: project.name || "",
-                      submittedBy: project.submittedBy || project.createdBy || project.primarySponsor || "",
-                      department: project.department || "",
-                      budgetBand: intakeOptions.budgetBands.find((item) => item.label === project.budget)?.value || "",
-                      clientSensitiveData: project.clientSensitiveDataLabel === "Yes" ? "yes" : project.clientSensitiveDataLabel === "No" ? "no" : project.clientSensitiveDataLabel === "Unsure" ? "unsure" : "",
-                      audienceVisibility: project.audienceVisibility || (project.audienceVisibilityLabel === "Internal only" ? "internal-only" : project.audienceVisibilityLabel === "Client only" ? "client-only" : project.audienceVisibilityLabel === "Internal and client" ? "internal-and-client" : ""),
-                      projectObjective: project.projectObjective || project.businessObjective || "",
-                      confidenceScore: project.confidenceScore || "",
-                      isMandatoryProject: project.isMandatoryProject || "",
-                      projectManager: project.projectManager || ""
-                    })); }}>Cancel</button>
-                    <button className="primary-btn" type="button" onClick={saveProjectDetails}>Save</button>
-                  </>
-                )}
-                <button className="icon-btn" type="button" aria-label="Close project details" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
-              </div>
+              <button className="icon-btn project-detail-close" type="button" aria-label="Close project details" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
             </div>
 
             {project.status === "Draft" && canResumeDraft && (
               <div className="draft-banner">
-                <div>
-                  <p className="draft-banner-title">Draft brief</p>
-                  <p className="draft-banner-copy">This brief is not finished yet. Open it and carry on from where you stopped.</p>
-                </div>
+                <div><p className="draft-banner-title">Draft brief</p><p className="draft-banner-copy">This brief is not finished yet. Open it and carry on from where you stopped.</p></div>
                 <button className="primary-btn" type="button" onClick={() => onResumeDraft(project)}>Resume form</button>
               </div>
             )}
 
-            <div className="detail-grid">
-              <section className="detail-card">
-                <div className="section-header-row">
-                  <div className="section-title-row">
-                    <p className="section-title">Initiation information/status</p>
-                  </div>
-                </div>
-                <dl className="detail-list">
-                  <div><dt>Project number</dt><dd>{project.projectNumber || "To be set"}</dd></div>
-                  <div><dt>Lifecycle stage</dt><dd>{currentPhaseRecord.label}</dd></div>
-                  <div><dt>Gateway</dt><dd>{currentPhaseRecord.gatewayLabel}</dd></div>
-                </dl>
-              </section>
+            {activeDetailTab === "details" ? (
+            <div className="project-detail-redesign" role="tabpanel" aria-label="Details">
+              <nav className="project-brief-jump" aria-label="Jump to project detail section">
+                <span>Jump to</span>
+                {[{ id: "project-about", label: "About" }, { id: "project-scope", label: "Scope" }, { id: "project-prioritisation", label: "Priority Score" }].map((item) => <button key={item.id} type="button" onClick={() => jumpToDetailSection(item.id)}>{item.label}</button>)}
+                <a className="project-brief-report-link" href={`power-bi-project-report.html?project=${encodeURIComponent(project.id)}`} target="_blank" rel="noopener noreferrer">
+                  <Icon icon="chart" className="project-brief-report-icon" />
+                  View Power BI Project Report
+                </a>
+              </nav>
 
-              <section className="detail-card">
-                <div className="section-header-row">
-                  <div className="section-title-row">
-                    <p className="section-title">Size</p>
+              <section className="project-brief-card project-brief-hero">
+                <div className="project-brief-hero-top">
+                  <div className="project-brief-statuses">
+                    <span className="project-brief-pill project-brief-pill-active">{displayValue(project.status)}</span>
+                    <span className="project-brief-pill">{displayValue(currentPhaseRecord.label)}</span>
+                  </div>
+                  <div className="project-brief-actions">
+                    {canEditProject && !isEditing && <button className="secondary-btn" type="button" onClick={() => setIsEditing(true)}>Edit</button>}
+                    {canEditProject && isEditing && <><button className="secondary-btn" type="button" onClick={() => { setIsEditing(false); setEditValues(buildProjectDetailEditValues(project)); }}>Cancel</button><button className="primary-btn" type="button" onClick={saveProjectDetails}>Save</button></>}
                   </div>
                 </div>
-                <dl className="detail-list">
-                  <div><dt>Project size</dt><dd>{getProjectSizeLabel(project.tshirtSize)}</dd></div>
-                  <div><dt>Score</dt><dd>{project.overallScore}/100</dd></div>
-                </dl>
-              </section>
-
-              <section className="detail-card full-span">
-                <div className="section-header-row">
-                  <div className="section-title-row">
-                    <p className="section-title">Details</p>
-                  </div>
-                </div>
+                {isEditing
+                  ? <input id="projectDetailTitle" className="detail-title-input project-brief-title-input" aria-label="Project name" type="text" value={editValues.projectName || ""} onChange={(event) => updateEditField("projectName", event.target.value)} />
+                  : <h2 id="projectDetailTitle" className="project-brief-title">{project.name}</h2>}
                 {isEditing ? (
-                  <div className="detail-edit-grid">
-                    <label><span>Project name</span><input type="text" value={editValues.projectName || ""} onChange={(event) => updateEditField("projectName", event.target.value)} /></label>
-                    <label><span>Project manager</span><input type="text" value={editValues.projectManager || ""} onChange={(event) => updateEditField("projectManager", event.target.value)} /></label>
+                  <div className="project-brief-meta project-brief-meta-edit">
+                    <div className="project-brief-readonly"><span>Size</span><strong>{displayValue(getProjectSizeLabel(editedAssessment?.tshirtSize || project.tshirtSize))}</strong></div>
+                    <div className="project-brief-readonly"><span>Project ID</span><strong>{displayValue(project.projectNumber || project.id)}</strong></div>
                     <label><span>Submitted by</span><input type="text" value={editValues.submittedBy || ""} onChange={(event) => updateEditField("submittedBy", event.target.value)} /></label>
                     <label><span>Department</span><select className={!editValues.department ? "is-placeholder" : ""} value={editValues.department || ""} onChange={(event) => updateEditField("department", event.target.value)}><option value="">Choose one</option>{intakeOptions.departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-                    <label><span>Estimated budget</span><select className={!editValues.budgetBand ? "is-placeholder" : ""} value={editValues.budgetBand || ""} onChange={(event) => updateEditField("budgetBand", event.target.value)}><option value="">Optional</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-                    <label><span>Client sensitive data</span><select className={!editValues.clientSensitiveData ? "is-placeholder" : ""} value={editValues.clientSensitiveData || ""} onChange={(event) => updateEditField("clientSensitiveData", event.target.value)}><option value="">Choose one</option>{intakeOptions.clientSensitiveDataOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-                    <label><span>Audience visibility</span><select className={!editValues.audienceVisibility ? "is-placeholder" : ""} value={editValues.audienceVisibility || ""} onChange={(event) => updateEditField("audienceVisibility", event.target.value)}><option value="">Choose one</option>{intakeOptions.audienceVisibility.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-                    <label><span>Mandatory project</span><select className={!editValues.isMandatoryProject ? "is-placeholder" : ""} value={editValues.isMandatoryProject || ""} onChange={(event) => updateEditField("isMandatoryProject", event.target.value)}><option value="">Choose one</option>{intakeOptions.mandatoryProject.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-                    <label><span>Confidence score</span><select className={!editValues.confidenceScore ? "is-placeholder" : ""} value={editValues.confidenceScore || ""} onChange={(event) => updateEditField("confidenceScore", event.target.value)}><option value="">Choose one</option>{scoreOptionSets.confidenceScore.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-                    <label className="detail-list-full"><span>Project objective</span><textarea value={editValues.projectObjective || ""} onChange={(event) => updateEditField("projectObjective", event.target.value)} /></label>
+                    <label><span>Budget band</span><select className={!editValues.budgetBand ? "is-placeholder" : ""} value={editValues.budgetBand || ""} onChange={(event) => updateEditField("budgetBand", event.target.value)}><option value="">Optional</option>{intakeOptions.budgetBands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                    <label><span>Actual completion</span><input type="date" value={editValues.actualCompletionDate || ""} onChange={(event) => updateEditField("actualCompletionDate", event.target.value)} /></label>
                   </div>
                 ) : (
-                  <dl className="detail-list">
-                    <div><dt>Project manager</dt><dd>{project.projectManager}</dd></div>
-                    <div><dt>Submitted by</dt><dd>{project.submittedBy || project.createdBy || project.primarySponsor}</dd></div>
-                    <div><dt>Department</dt><dd>{project.department}</dd></div>
-                    <div><dt>Estimated budget</dt><dd>{project.budget}</dd></div>
-                    <div><dt>Client sensitive data</dt><dd>{project.clientSensitiveDataLabel || "To be confirmed"}</dd></div>
-                    <div><dt>Audience visibility</dt><dd>{project.audienceVisibilityLabel || project.audienceType || project.projectType}</dd></div>
-                    <div><dt>Mandatory project</dt><dd>{project.mandatoryProjectLabel || getMandatoryProjectLabel(project.isMandatoryProject)}</dd></div>
-                    <div><dt>Confidence score</dt><dd>{project.confidenceScore || "To be confirmed"}</dd></div>
-                    <div className="detail-list-full"><dt>Project objective</dt><dd>{project.projectObjective || project.businessObjective}</dd></div>
+                  <dl className="project-brief-meta">
+                    <div><dt>Size</dt><dd>{displayValue(getProjectSizeLabel(project.tshirtSize))}</dd></div>
+                    <div><dt>Project ID</dt><dd>{displayValue(project.projectNumber || project.id)}</dd></div>
+                    <div><dt>Submitted by</dt><dd>{displayValue(project.submittedBy || project.createdBy)}</dd></div>
+                    <div><dt>Department</dt><dd>{displayValue(project.department)}</dd></div>
+                    <div><dt>Budget band</dt><dd>{displayValue(project.budget || project.budgetBandLabel)}</dd></div>
+                    <div><dt>Actual completion</dt><dd>{project.actualCompletionDate ? formatProjectShortDate(project.actualCompletionDate) : "Not yet complete"}</dd></div>
                   </dl>
                 )}
               </section>
 
-              {showFutureSections && <section className="detail-card full-span"></section>}
+              <div className="project-brief-metrics">
+                <article className="project-brief-metric">
+                  {isEditing ? <><label><span>Target End Date</span><input type="date" value={editValues.targetEndDate || ""} onChange={(event) => updateEditField("targetEndDate", event.target.value)} /></label><label><span>Start Date</span><input type="date" value={editValues.startDate || ""} onChange={(event) => updateEditField("startDate", event.target.value)} /></label></> : <><span>Target End Date</span><strong>{formatProjectShortDate(project.targetEndDate)}</strong><small>Started {formatProjectShortDate(project.startDate)}</small></>}
+                </article>
+                <article className="project-brief-metric">
+                  {isEditing ? <><label><span>Current Agreed Cost</span><input type="number" min="0" step="1000" value={editValues.agreedCost ?? ""} onChange={(event) => updateEditField("agreedCost", event.target.value)} /></label><label><span>Current Costs</span><input type="number" min="0" step="1000" value={editValues.currentCost ?? ""} onChange={(event) => updateEditField("currentCost", event.target.value)} /></label></> : <><span>Finances</span><strong>{formatCompactCurrency(project.currentCost)} of {formatCompactCurrency(project.agreedCost)}</strong><small>{formatCompactCurrency(project.remainingCost)} remaining</small></>}
+                </article>
+                <article className="project-brief-metric">
+                  {isEditing ? <><label><span>Project Manager</span><input type="text" value={editValues.projectManager || ""} onChange={(event) => updateEditField("projectManager", event.target.value)} /></label><label><span>Project Sponsor</span><input type="text" value={editValues.primarySponsor || ""} onChange={(event) => updateEditField("primarySponsor", event.target.value)} /></label></> : <><span>Project Manager</span><div className="project-brief-people"><div><strong>{displayValue(project.projectManager)}</strong></div><div><small>Project Sponsor</small><strong>{displayValue(project.primarySponsor)}</strong></div></div></>}
+                </article>
+                <article className="project-brief-metric">
+                  <span>Priority Score</span><strong>{editedAssessment?.score ?? project.overallScore ?? "-"} / 100</strong><small>{getScoreDescription("strategicAlignment", isEditing ? editValues.strategicAlignment : project.strategicAlignment)}</small>
+                </article>
+              </div>
+
+              <section id="project-about" className="project-brief-card project-brief-about">
+                <h3>About this project</h3>
+                {isEditing ? (
+                  <div className="project-brief-about-grid project-brief-edit-columns"><label><span>Summary</span><textarea value={editValues.projectDescription || ""} onChange={(event) => updateEditField("projectDescription", event.target.value)} /></label><label><span>Objective</span><textarea value={editValues.projectObjective || ""} onChange={(event) => updateEditField("projectObjective", event.target.value)} /></label><label><span>Expected benefits</span><textarea value={editValues.expectedBenefits || ""} onChange={(event) => updateEditField("expectedBenefits", event.target.value)} /></label><label><span>Expected outcomes</span><textarea value={editValues.expectedOutcomes || ""} onChange={(event) => updateEditField("expectedOutcomes", event.target.value)} /></label></div>
+                ) : (
+                  <dl className="project-brief-about-grid"><div><dt>Summary</dt><dd>{displayValue(project.projectDescription || project.draftFormValues?.projectDescription)}</dd></div><div><dt>Objective</dt><dd>{displayValue(project.projectObjective || project.businessObjective)}</dd></div><div><dt>Expected benefits</dt><dd>{displayValue(project.expectedBenefits || project.expectedOutcomesBenefits)}</dd></div><div><dt>Expected outcomes</dt><dd>{displayValue(project.expectedOutcomes)}</dd></div></dl>
+                )}
+              </section>
+
+              <div id="project-scope" className="project-brief-scope-grid">
+                <section className="project-brief-card"><h3>In scope</h3>{isEditing ? <textarea value={editValues.inScope || ""} onChange={(event) => updateEditField("inScope", event.target.value)} /> : <p>{displayValue(project.inScope || project.projectScope)}</p>}</section>
+                <section className="project-brief-card"><h3>Out of scope</h3>{isEditing ? <textarea value={editValues.outOfScope || ""} onChange={(event) => updateEditField("outOfScope", event.target.value)} /> : <p>{displayValue(project.outOfScope)}</p>}</section>
+              </div>
+
+              <section id="project-prioritisation" className="project-brief-card project-brief-prioritisation">
+                <h3>Priority Score</h3>
+                <div className="project-brief-score-list">
+                  {scoreAnswerFields.map((field) => {
+                    const scoreValue = project[field.name];
+                    const hasScore = scoreValue !== undefined && scoreValue !== "";
+                    return <div key={field.name}><span>{field.title}</span>{isEditing ? <select aria-label={field.title} className={!editValues[field.name] ? "is-placeholder" : ""} value={editValues[field.name] || ""} onChange={(event) => updateEditField(field.name, event.target.value)}><option value="">Choose one</option>{field.options.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select> : <div className="project-brief-score-value"><strong>{hasScore ? `${scoreValue} / 5` : "Not provided"}</strong>{hasScore && <small>{getScoreDescription(field.name, scoreValue)}</small>}</div>}</div>;
+                  })}
+                </div>
+              </section>
             </div>
+            ) : (
+            <div className="project-reporting-tab" role="tabpanel" aria-label="Power BI Reporting Update">
+              <div className="project-reporting-toolbar">
+                <div><h2 id="projectDetailTitle">Power BI Reporting Update</h2><p>Structured update for Power BI portfolio reporting</p></div>
+                <div className="detail-header-actions">{canEditProject && !isEditing && <button className="secondary-btn" type="button" onClick={() => setIsEditing(true)}>Edit</button>}{canEditProject && isEditing && <><button className="secondary-btn" type="button" onClick={() => { setIsEditing(false); setEditValues(buildProjectDetailEditValues(project)); }}>Cancel</button><button className="primary-btn" type="button" onClick={saveProjectDetails}>Save</button></>}</div>
+              </div>
+            <div className="detail-grid project-detail-sections power-bi-reporting-sections">
+              <section className="detail-card full-span reporting-period-card">
+                <div className="section-header-row">
+                  <div className="section-title-row"><p className="section-title">Reporting Period</p></div>
+                </div>
+                {isEditing ? (
+                  <div className="detail-edit-grid reporting-period-grid">
+                    <label><span>Reporting Period From</span><input type="date" value={editValues.reportingPeriodFrom || ""} onChange={(event) => updateEditField("reportingPeriodFrom", event.target.value)} /></label>
+                    <label><span>Reporting Period To</span><input type="date" value={editValues.reportingPeriodTo || ""} onChange={(event) => updateEditField("reportingPeriodTo", event.target.value)} /></label>
+                    <div className="detail-readonly-field"><span>Last Updated Date</span><strong>{formatProjectDate(getTodayDateValue())}</strong></div>
+                  </div>
+                ) : (
+                  <dl className="detail-list reporting-period-grid">
+                    <div><dt>Reporting Period From</dt><dd>{formatProjectDate(reportingPeriodRange.from)}</dd></div>
+                    <div><dt>Reporting Period To</dt><dd>{formatProjectDate(reportingPeriodRange.to)}</dd></div>
+                    <div><dt>Last Updated Date</dt><dd>{formatProjectDate(project.reportingUpdateDate)}</dd></div>
+                  </dl>
+                )}
+              </section>
+
+              <section className="detail-card full-span reporting-pm-commentary-card">
+                <div className="section-header-row">
+                  <div className="section-title-row"><p className="section-title">PM Commentary</p></div>
+                </div>
+                {isEditing ? (
+                  <div className="detail-edit-grid reporting-narrative-grid">
+                    <label className="detail-list-full"><span>PM Commentary</span><textarea value={editValues.pmCommentary || ""} onChange={(event) => updateEditField("pmCommentary", event.target.value)} /></label>
+                  </div>
+                ) : (
+                  <p className="reporting-pm-commentary">{displayValue(project.pmCommentary)}</p>
+                )}
+              </section>
+
+              <section className="detail-card full-span reporting-progress-card">
+                <div className="section-header-row">
+                  <div className="section-title-row"><p className="section-title">Progress Update</p></div>
+                </div>
+                {isEditing ? (
+                  <div className="detail-edit-grid reporting-progress-grid">
+                    <label><span>Key Accomplishments</span><textarea placeholder="Enter one bullet per line" value={editValues.keyAccomplishments || ""} onChange={(event) => updateEditField("keyAccomplishments", event.target.value)} /></label>
+                    <label><span>Activities for Next Period</span><textarea placeholder="Enter one bullet per line" value={editValues.activitiesNextPeriod || ""} onChange={(event) => updateEditField("activitiesNextPeriod", event.target.value)} /></label>
+                  </div>
+                ) : (
+                  <div className="reporting-progress-grid">
+                    <div className="reporting-bullet-column">
+                      <h4>Key Accomplishments</h4>
+                      {getBulletItems(project.keyAccomplishments).length
+                        ? <ul className="reporting-bullet-list">{getBulletItems(project.keyAccomplishments).map((item, index) => <li key={`accomplishment-${index}`}>{item}</li>)}</ul>
+                        : <p>Not provided</p>}
+                    </div>
+                    <div className="reporting-bullet-column">
+                      <h4>Activities for Next Period</h4>
+                      {getBulletItems(project.activitiesNextPeriod).length
+                        ? <ul className="reporting-bullet-list">{getBulletItems(project.activitiesNextPeriod).map((item, index) => <li key={`activity-${index}`}>{item}</li>)}</ul>
+                        : <p>Not provided</p>}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="detail-card full-span reporting-decision-card">
+                <div className="section-header-row">
+                  <div className="section-title-row"><p className="section-title">Decision Required</p></div>
+                </div>
+                {isEditing ? (
+                  <div className="detail-edit-grid reporting-decision-grid">
+                    <label><span>Decision Required</span><select className={!editValues.decisionRequired ? "is-placeholder" : ""} value={editValues.decisionRequired || ""} onChange={(event) => updateEditField("decisionRequired", event.target.value)}><option value="">Choose one</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+                    <label><span>Decision By When</span><input type="text" placeholder="For example, by next week" value={editValues.decisionByWhen || ""} onChange={(event) => updateEditField("decisionByWhen", event.target.value)} disabled={decisionFieldsDisabled} /></label>
+                    <label className="detail-list-full"><span>Impact If No Decision</span><textarea value={editValues.impactIfNoDecision || ""} onChange={(event) => updateEditField("impactIfNoDecision", event.target.value)} disabled={decisionFieldsDisabled} /></label>
+                  </div>
+                ) : (
+                  <dl className="detail-list reporting-decision-grid">
+                    <div><dt>Decision Required</dt><dd>{getDecisionRequiredLabel(project.decisionRequired)}</dd></div>
+                    <div><dt>Decision By When</dt><dd>{displayValue(project.decisionByWhen)}</dd></div>
+                    <div className="detail-list-full"><dt>Impact If No Decision</dt><dd>{displayValue(project.impactIfNoDecision)}</dd></div>
+                  </dl>
+                )}
+              </section>
+
+              <section className="detail-card full-span reporting-commentary-card">
+                <div className="section-header-row">
+                  <div className="section-title-row"><p className="section-title">Delivery Commentary</p></div>
+                </div>
+                {isEditing ? (
+                  <div className="reporting-rag-grid">
+                    {[
+                      { label: "Schedule", ragField: "scheduleRag", reasonField: "scheduleReason" },
+                      { label: "Resource", ragField: "resourceRag", reasonField: "resourceReason" },
+                      { label: "Scope", ragField: "scopeRag", reasonField: "scopeReason" }
+                    ].map((item) => (
+                      <div className="reporting-rag-edit-item" key={item.ragField}>
+                        <label><span>{item.label} RAG</span><select className={!editValues[item.ragField] ? "is-placeholder" : ""} value={editValues[item.ragField] || ""} onChange={(event) => updateEditField(item.ragField, event.target.value)}><option value="">Choose one</option><option value="Green">Green</option><option value="Amber">Amber</option><option value="Red">Red</option></select></label>
+                        <label><span>{item.label} Reason</span><textarea value={editValues[item.reasonField] || ""} onChange={(event) => updateEditField(item.reasonField, event.target.value)} /></label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="reporting-rag-grid">
+                    {[
+                      { label: "Schedule", rag: project.scheduleRag, reason: project.scheduleReason },
+                      { label: "Resource", rag: project.resourceRag, reason: project.resourceReason },
+                      { label: "Scope", rag: project.scopeRag, reason: project.scopeReason }
+                    ].map((item) => (
+                      <div className="reporting-rag-item" key={item.label}>
+                        <div className="reporting-rag-heading">
+                          <h4>{item.label}</h4>
+                          <span className={`governance-rag-pill ${item.rag ? getGovernanceRagClass(item.rag) : ""}`}>{displayValue(item.rag)}</span>
+                        </div>
+                        <p>{displayValue(item.reason)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="detail-card full-span reporting-cost-card">
+                <div className="section-header-row">
+                  <div className="section-title-row"><p className="section-title">Cost Position</p></div>
+                </div>
+                {isEditing ? (
+                  <div className="detail-edit-grid reporting-cost-grid">
+                    <label><span>Current Agreed Cost</span><input type="number" min="0" step="1000" value={editValues.agreedCost ?? ""} onChange={(event) => updateEditField("agreedCost", event.target.value)} /></label>
+                    <label><span>Current Costs</span><input type="number" min="0" step="1000" value={editValues.currentCost ?? ""} onChange={(event) => updateEditField("currentCost", event.target.value)} /></label>
+                    <label><span>Remaining Cost</span><input type="number" min="0" step="1000" value={editValues.remainingCost ?? ""} onChange={(event) => updateEditField("remainingCost", event.target.value)} /></label>
+                  </div>
+                ) : (
+                  <dl className="detail-list reporting-cost-grid">
+                    <div><dt>Current Agreed Cost</dt><dd>{formatCurrency(project.agreedCost)}</dd></div>
+                    <div><dt>Current Costs</dt><dd>{formatCurrency(project.currentCost)}</dd></div>
+                    <div><dt>Remaining Cost</dt><dd>{formatCurrency(project.remainingCost)}</dd></div>
+                  </dl>
+                )}
+              </section>
+            </div>
+            </div>
+            )}
           </div>
         </Modal>
       );
@@ -2679,6 +3086,13 @@
       if (!project.steeringDecisionNeeded) return false;
       if (/^no steering decision/i.test(project.steeringDecisionNeeded)) return false;
       return project.status !== "Completed";
+    }
+
+    function getProjectDecisionRequiredValue(project) {
+      const decisionValue = project.decisionRequired;
+      if (decisionValue === true || String(decisionValue).toLowerCase() === "yes") return "yes";
+      if (decisionValue === false || String(decisionValue).toLowerCase() === "no") return "no";
+      return isDecisionRequired(project) ? "yes" : "no";
     }
 
     function getStakeholderOverallRagReason(project) {
@@ -3779,7 +4193,9 @@
       const sortedProjects = useMemo(() => {
         const getSortValue = (project, key) => {
           if (key === "completionPercentage") return project.completionPercentage;
-          if (key === "status") return getLifecycleDisplayStatus(project).label.toLowerCase();
+          if (key === "lifecycle") return getLifecyclePhaseLabel(mapProjectToLifecyclePhase(project)).toLowerCase();
+          if (key === "status") return `${project.status || ""}`.toLowerCase();
+          if (key === "decisionRequired") return getProjectDecisionRequiredValue(project);
           if (key === "tshirtSize") return getProjectSizeLabel(project.tshirtSize);
           return `${project[key] || ""}`.toLowerCase();
         };
@@ -3849,11 +4265,13 @@
       } : null;
       const columnDefinitions = [
         { key: "name", label: "Project name" },
+        { key: "lifecycle", label: "Lifecycle" },
         { key: "status", label: "Status" },
         { key: "projectManager", label: "Manager" },
         { key: "submittedBy", label: "Submitted by" },
         { key: "department", label: "Department" },
-        { key: "tshirtSize", label: "Size" }
+        { key: "tshirtSize", label: "Size" },
+        { key: "decisionRequired", label: "Decision" }
       ];
 
       const onChange = (event) => {
@@ -4195,6 +4613,16 @@
                       </div>
                       <div className="portfolio-table-wrap">
                         <table className="portfolio-table">
+                          <colgroup>
+                            <col className="portfolio-col-project" />
+                            <col className="portfolio-col-lifecycle" />
+                            <col className="portfolio-col-status" />
+                            <col className="portfolio-col-manager" />
+                            <col className="portfolio-col-submitter" />
+                            <col className="portfolio-col-department" />
+                            <col className="portfolio-col-size" />
+                            <col className="portfolio-col-decision" />
+                          </colgroup>
                           <thead>
                             <tr>
                               {columnDefinitions.map((column) => (
@@ -4212,27 +4640,27 @@
                           </thead>
                             <tbody>
                               {sortedProjects.map((project) => {
-                                const displayStatus = getLifecycleDisplayStatus(project);
+                                const lifecycleLabel = getLifecyclePhaseLabel(mapProjectToLifecyclePhase(project));
 
                                 return (
                                   <tr key={project.id} className="project-table-row">
                                     <td>
                                       <div className="project-main-row">
                                         <div className="project-main">{project.name}</div>
-                                        <div className="project-entry-actions">
-                                          <button className="project-entry-btn" type="button" onClick={(event) => { event.stopPropagation(); openProject(project); }}>Details</button>
-                                          {canAccessLifecycleProject(project) && (
-                                            <button className="project-entry-btn project-entry-btn-lifecycle" type="button" onClick={(event) => { event.stopPropagation(); openLifecycleProject(project); }}>Lifecycle</button>
-                                          )}
-                                        </div>
+                                        <button className="project-entry-btn" type="button" onClick={(event) => { event.stopPropagation(); openProject(project); }}>Details</button>
                                       </div>
-                                      <div className="project-sub">{project.projectType} · Phase: {displayStatus.label}</div>
                                     </td>
-                                    <td><span className={`status-pill ${getStatusClass(displayStatus.label)}`}>{displayStatus.label}</span></td>
+                                    <td>
+                                      {canAccessLifecycleProject(project)
+                                        ? <button className="project-lifecycle-pill" type="button" aria-label={`Open ${project.name} lifecycle`} onClick={(event) => { event.stopPropagation(); openLifecycleProject(project); }}>{lifecycleLabel}</button>
+                                        : <span className="project-lifecycle-pill project-lifecycle-pill-static">{lifecycleLabel}</span>}
+                                    </td>
+                                    <td><span className="project-status-text">{project.status || "Not provided"}</span></td>
                                     <td><span className="table-person-name">{project.projectManager}</span></td>
                                     <td><span className="table-person-name">{project.submittedBy || project.primarySponsor}</span></td>
                                     <td>{project.department}</td>
-                                    <td><span className="size-badge">{getProjectSizeLabel(project.tshirtSize)}</span></td>
+                                    <td>{getProjectSizeLabel(project.tshirtSize)}</td>
+                                    <td><span className={`decision-required-pill decision-required-${getProjectDecisionRequiredValue(project)}`}>{getProjectDecisionRequiredValue(project) === "yes" ? "Yes" : "No"}</span></td>
                                   </tr>
                                 );
                               })}
@@ -4374,5 +4802,3 @@
       }
       throw error;
     }
-  
-
