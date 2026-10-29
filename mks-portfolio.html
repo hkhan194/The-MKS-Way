@@ -914,6 +914,22 @@
       };
     }
 
+    function mergeSeededRaidRecords(seedRecords, storedRecords) {
+      const recordTypes = ["risks", "issues"];
+      const mergedRecords = {};
+
+      recordTypes.forEach((recordType) => {
+        const currentSamples = Array.isArray(seedRecords?.[recordType]) ? seedRecords[recordType] : [];
+        const storedItems = Array.isArray(storedRecords?.[recordType]) ? storedRecords[recordType] : [];
+        const userRecords = storedItems.filter((record) => (
+          !record?.isSample && !String(record?.id || "").startsWith("SAMPLE-")
+        ));
+        mergedRecords[recordType] = [...currentSamples, ...userRecords];
+      });
+
+      return mergedRecords;
+    }
+
     function getStoredProjects() {
       try {
         const stored = window.localStorage.getItem(projectsStorageKey);
@@ -929,10 +945,16 @@
         const seededIds = new Set(mockProjects.map((project) => String(project.id)));
         const storedProjectsById = new Map(parsed.map((project) => [String(project.id), project]));
         const customProjects = parsed.filter((project) => !seededIds.has(String(project.id)));
-        const seededProjects = mockProjects.map((project) => ({
-          ...project,
-          ...(storedProjectsById.get(String(project.id)) || {})
-        }));
+        const seededProjects = mockProjects.map((project) => {
+          const storedProject = storedProjectsById.get(String(project.id));
+          if (!storedProject) return project;
+
+          return {
+            ...project,
+            ...storedProject,
+            raidRecords: mergeSeededRaidRecords(project.raidRecords, storedProject.raidRecords)
+          };
+        });
         const hydratedProjects = [...customProjects, ...seededProjects].map(hydrateProject);
         return repairKnownSubmittedProjects(hydratedProjects);
       } catch {
