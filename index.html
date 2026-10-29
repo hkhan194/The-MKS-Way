@@ -7,12 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261020-11">
+  <link rel="stylesheet" href="styles.css?v=20261029-2">
 </head>
 <body>
   <div id="root">Loading MyMKSWay...</div>
   <script>window.MKS_PAGE = "portfolio";</script>
-  <script src="app-config.js?v=20261020-1"></script>
+  <script src="app-config.js?v=20261029-2"></script>
   <script src="scoring.js"></script>
   <script src="react.development.js"></script>
   <script src="react-dom.development.js"></script>
@@ -2018,21 +2018,420 @@
             </div>
             </div>
             )}
+
           </div>
         </Modal>
       );
+    }
+
+    const raidLikelihoodOptions = [
+      { value: "", label: "Select a value" },
+      { value: "1", label: "1 - Rare" },
+      { value: "2", label: "2 - Unlikely" },
+      { value: "3", label: "3 - Possible" },
+      { value: "4", label: "4 - Likely" },
+      { value: "5", label: "5 - Almost certain" }
+    ];
+
+    const raidImpactOptions = [
+      { value: "", label: "Select a value" },
+      { value: "1", label: "1 - Insignificant" },
+      { value: "2", label: "2 - Minor" },
+      { value: "3", label: "3 - Moderate" },
+      { value: "4", label: "4 - Major" },
+      { value: "5", label: "5 - Severe" }
+    ];
+
+    const raidRiskRatingOptions = [
+      { value: "", label: "Select a rating" },
+      { value: "Critical", label: "Critical" },
+      { value: "High", label: "High" },
+      { value: "Low", label: "Low" },
+      { value: "Moderate", label: "Moderate" }
+    ];
+
+    const raidIssueSeverityOptions = [
+      { value: "", label: "Select a severity" },
+      { value: "Low", label: "1 - Low" },
+      { value: "Medium", label: "2 - Medium" },
+      { value: "High", label: "3 - High" },
+      { value: "Critical", label: "4 - Critical" }
+    ];
+
+    const raidImpactAreaOptions = [
+      { value: "", label: "Select an area" },
+      { value: "Benefits", label: "Benefits" },
+      { value: "Cost and Budget", label: "Cost and Budget" },
+      { value: "Customer / Stakeholder", label: "Customer / Stakeholder" },
+      { value: "Cybersecurity", label: "Cybersecurity" },
+      { value: "Data", label: "Data" },
+      { value: "Legal or Regulatory", label: "Legal or Regulatory" },
+      { value: "Operations or Service", label: "Operations or Service" },
+      { value: "Other", label: "Other" },
+      { value: "People or Change", label: "People or Change" },
+      { value: "Quality", label: "Quality" },
+      { value: "Reputation", label: "Reputation" },
+      { value: "Resources or Capacity", label: "Resources or Capacity" },
+      { value: "Schedule", label: "Schedule" },
+      { value: "Scope", label: "Scope" },
+      { value: "Supplier or Commercial", label: "Supplier or Commercial" },
+      { value: "Technology", label: "Technology" }
+    ];
+
+    const raidRiskStatusOptions = [
+      { value: "", label: "Select a status" },
+      { value: "Closed", label: "Closed" },
+      { value: "Draft", label: "Draft" },
+      { value: "Escalated", label: "Escalated" },
+      { value: "Monitoring", label: "Monitoring" },
+      { value: "Open", label: "Open" },
+      { value: "Realised", label: "Realised" },
+      { value: "Treatment in Progress", label: "Treatment in Progress" }
+    ];
+
+    const raidIssueStatusOptions = [
+      { value: "", label: "Select a status" },
+      { value: "Assessing", label: "Assessing" },
+      { value: "Cancelled", label: "Cancelled" },
+      { value: "Closed", label: "Closed" },
+      { value: "In Progress", label: "In Progress" },
+      { value: "New", label: "New" },
+      { value: "Pending External", label: "Pending External" },
+      { value: "Resolved", label: "Resolved" },
+    ];
+
+    const raidRiskFormSections = [
+      {
+        key: "details",
+        title: "Risk Details",
+        fields: [
+          { name: "risk", label: "Risk", full: true },
+          { name: "description", label: "Description", type: "textarea", full: true },
+          { name: "owner", label: "Owner" },
+          { name: "dateRaised", label: "Date Raised", type: "date" },
+          { name: "raisedBy", label: "Raised By" },
+          { name: "workstream", label: "Workstream / Business Area" },
+          { name: "category", label: "Category", type: "select", options: raidImpactAreaOptions },
+          { name: "sourceForum", label: "Source / Forum" },
+          { name: "riskStatus", label: "Risk Status", type: "select", options: raidRiskStatusOptions },
+          { name: "relatedRecordReferences", label: "Related Record References", full: true },
+          { name: "targetDate", label: "Target Date", type: "date" },
+          { name: "nextRiskReviewDate", label: "Next Risk Review Date", type: "date" },
+          { name: "completionDate", label: "Completion Date", type: "date" },
+          { name: "evidenceLink", label: "Evidence / Supporting Link", type: "url", full: true }
+        ]
+      },
+      {
+        key: "inherent",
+        title: "Inherent Risk",
+        fields: [
+          { name: "inherentLikelihood", label: "Inherent Likelihood", type: "select", options: raidLikelihoodOptions },
+          { name: "inherentImpact", label: "Inherent Impact", type: "select", options: raidImpactOptions },
+          { name: "inherentScore", label: "Inherent Risk Score", type: "readonly" },
+          { name: "inherentRating", label: "Inherent Risk Rating", type: "select", options: raidRiskRatingOptions }
+        ]
+      },
+      {
+        key: "treatment",
+        title: "Risk Treatment",
+        fields: [
+          { name: "treatmentStrategy", label: "Treatment Strategy" },
+          { name: "treatmentRationale", label: "Treatment / Acceptance Rationale", type: "textarea", full: true },
+          { name: "triggerContingency", label: "Trigger / Contingency", type: "textarea", full: true }
+        ]
+      },
+      {
+        key: "residual",
+        title: "Residual Risk",
+        fields: [
+          { name: "residualLikelihood", label: "Residual Likelihood", type: "select", options: raidLikelihoodOptions },
+          { name: "residualImpact", label: "Residual Impact", type: "select", options: raidImpactOptions },
+          { name: "residualScore", label: "Residual Risk Score", type: "readonly" },
+          { name: "residualRating", label: "Residual Risk Rating", type: "select", options: raidRiskRatingOptions }
+        ]
+      }
+    ];
+
+    const raidIssueFormSections = [
+      {
+        key: "details",
+        title: "Issue Details",
+        fields: [
+          { name: "issue", label: "Issue", full: true },
+          { name: "description", label: "Description", type: "textarea", full: true },
+          { name: "owner", label: "Owner" },
+          { name: "dateRaised", label: "Date Raised", type: "date" },
+          { name: "raisedBy", label: "Raised By" },
+          { name: "workstream", label: "Workstream / Business Area" },
+          { name: "category", label: "Category", type: "select", options: raidImpactAreaOptions },
+          { name: "sourceForum", label: "Source / Forum" },
+          { name: "issueStatus", label: "Issue Status", type: "select", options: raidIssueStatusOptions },
+          { name: "itemType", label: "Item Type", type: "select", options: [{ value: "Issue", label: "Issue" }] },
+          { name: "relatedRecordReferences", label: "Related Record References", full: true }
+        ]
+      },
+      {
+        key: "assessment",
+        title: "Impact / Assessment",
+        fields: [
+          { name: "issueSeverity", label: "Issue Severity", type: "select", options: raidIssueSeverityOptions },
+          { name: "impactAreas", label: "Impact Areas", type: "select", options: raidImpactAreaOptions },
+          { name: "escalationRequired", label: "Escalation Required", type: "select", options: [{ value: "", label: "Select" }, { value: "Yes", label: "Yes" }, { value: "No", label: "No" }] },
+          { name: "rootCause", label: "Root Cause", type: "textarea", full: true }
+        ]
+      },
+      {
+        key: "resolution",
+        title: "Resolution / Actions",
+        fields: [
+          { name: "immediateWorkaround", label: "Immediate Workaround", type: "textarea", full: true },
+          { name: "resolutionPlan", label: "Resolution Plan", type: "textarea", full: true },
+          { name: "resolutionSummary", label: "Resolution Summary", type: "textarea", full: true },
+          { name: "targetDate", label: "Target Date", type: "date" },
+          { name: "completionDate", label: "Completion Date", type: "date" }
+        ]
+      },
+      {
+        key: "supporting",
+        title: "Supporting Information",
+        fields: [
+          { name: "evidenceLink", label: "Evidence / Supporting Link", type: "url", full: true }
+        ]
+      }
+    ];
+
+    function getRaidRiskAssessment(likelihood, impact) {
+      const likelihoodScore = Number(likelihood);
+      const impactScore = Number(impact);
+      if (!likelihoodScore || !impactScore) return { score: "", rating: "Not assessed" };
+      const score = likelihoodScore * impactScore;
+      const rating = score >= 17 ? "Critical" : score >= 10 ? "High" : score >= 5 ? "Moderate" : "Low";
+      return { score: String(score), rating };
+    }
+
+    function getRaidRatingClass(rating) {
+      if (rating === "Critical" || rating === "High") return "rag-red";
+      if (rating === "Medium" || rating === "Moderate") return "rag-amber";
+      if (rating === "Low") return "rag-green";
+      return "raid-rating-unassessed";
+    }
+
+    function getIssueSeverityClass(severity) {
+      if (severity === "High" || severity === "Critical") return "rag-red";
+      if (severity === "Medium" || severity === "Moderate") return "rag-amber";
+      if (severity === "Low") return "rag-green";
+      return "raid-rating-unassessed";
+    }
+
+    function getRaidStatusClass(status) {
+      const normalisedStatus = String(status || "").trim().toLowerCase();
+      if (normalisedStatus === "active") return "raid-status-active";
+      if (normalisedStatus === "assessing") return "raid-status-assessing";
+      if (normalisedStatus === "new") return "raid-status-new";
+      if (normalisedStatus === "open") return "raid-status-open";
+      if (normalisedStatus === "mitigating") return "raid-status-mitigating";
+      if (normalisedStatus === "monitoring") return "raid-status-monitoring";
+      if (normalisedStatus === "in progress") return "raid-status-in-progress";
+      if (normalisedStatus === "pending external") return "raid-status-pending-external";
+      if (normalisedStatus === "draft") return "raid-status-draft";
+      if (normalisedStatus === "escalated") return "raid-status-escalated";
+      if (normalisedStatus === "realised") return "raid-status-realised";
+      if (normalisedStatus === "treatment in progress") return "raid-status-treatment";
+      if (normalisedStatus === "resolved") return "raid-status-resolved";
+      if (normalisedStatus === "closed") return "raid-status-closed";
+      if (normalisedStatus === "cancelled") return "raid-status-cancelled";
+      return "";
+    }
+
+    const raidRiskHelp = {
+      inherent: {
+        title: "Inherent Risk",
+        description: "The level of risk before any controls, treatment or mitigating actions are applied."
+      },
+      residual: {
+        title: "Residual Risk",
+        description: "The level of risk expected to remain after the planned controls and mitigating actions are applied."
+      }
+    };
+
+    function RaidRiskHelp({ type }) {
+      const help = raidRiskHelp[type];
+      return (
+        <details className="raid-help">
+          <summary aria-label={`About ${help.title}`} title={`About ${help.title}`}>
+            <Icon icon="help" className="raid-help-icon" />
+          </summary>
+          <div className="raid-help-popover" role="tooltip">
+            <strong>{help.title}</strong>
+            <p>{help.description}</p>
+            <ul>
+              <li><strong>Low (1-4):</strong> manageable through routine controls.</li>
+              <li><strong>Moderate (5-9):</strong> requires active monitoring and agreed action.</li>
+              <li><strong>High (10-16):</strong> requires prompt treatment and owner attention.</li>
+              <li><strong>Critical (17-25):</strong> requires immediate escalation and action.</li>
+            </ul>
+          </div>
+        </details>
+      );
+    }
+
+    function RaidRiskIndicator({ score, rating, compact = false }) {
+      const numericScore = Number(score);
+      const markerPosition = Number.isFinite(numericScore) && numericScore > 0
+        ? Math.min(100, Math.max(4, (numericScore / 25) * 100))
+        : 0;
+      const tooltip = numericScore > 0
+        ? `${rating || "Risk"}: ${numericScore} / 25`
+        : "Risk not assessed";
+
+      return (
+        <div className={`raid-risk-visual ${compact ? "raid-risk-visual-compact" : ""}`} title={tooltip} aria-label={tooltip}>
+          <div className="raid-risk-scale" aria-hidden="true">
+            <span className="raid-risk-band raid-risk-band-low"></span>
+            <span className="raid-risk-band raid-risk-band-medium"></span>
+            <span className="raid-risk-band raid-risk-band-high"></span>
+            {numericScore > 0 && <span className="raid-risk-marker" style={{ left: `${markerPosition}%` }}></span>}
+          </div>
+          <div className="raid-risk-visual-footer">
+            {compact ? (
+              <strong>{rating || "Not assessed"}</strong>
+            ) : (
+              <>
+                <span className={rating === "Low" ? "raid-risk-label-current" : ""}>Low</span>
+                <span className={rating === "Medium" || rating === "Moderate" ? "raid-risk-label-current" : ""}>Moderate</span>
+                <span className={rating === "High" || rating === "Critical" ? "raid-risk-label-current" : ""}>High</span>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function RaidSeverityIndicator({ severity, compact = false }) {
+      const positions = { Low: 18, Medium: 52, Moderate: 52, High: 84, Critical: 98 };
+      const markerPosition = positions[severity] || 0;
+      const tooltip = severity ? `Issue severity: ${severity}` : "Issue severity not provided";
+
+      return (
+        <div className={`raid-risk-visual raid-severity-visual ${compact ? "raid-risk-visual-compact" : ""}`} title={tooltip} aria-label={tooltip}>
+          <div className="raid-risk-scale" aria-hidden="true">
+            <span className="raid-risk-band raid-risk-band-low"></span>
+            <span className="raid-risk-band raid-risk-band-medium"></span>
+            <span className="raid-risk-band raid-risk-band-high"></span>
+            {markerPosition > 0 && <span className="raid-risk-marker" style={{ left: `${markerPosition}%` }}></span>}
+          </div>
+          <div className="raid-risk-visual-footer">
+            {compact ? (
+              <strong>{severity || "Not provided"}</strong>
+            ) : (
+              <>
+                <span className={severity === "Low" ? "raid-risk-label-current" : ""}>Low</span>
+                <span className={severity === "Medium" || severity === "Moderate" ? "raid-risk-label-current" : ""}>Medium</span>
+                <span className={severity === "High" || severity === "Critical" ? "raid-risk-label-current" : ""}>High</span>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function normaliseRaidRecords(records) {
+      return {
+        risks: Array.isArray(records?.risks) ? records.risks.map((record) => {
+          const inherentAssessment = getRaidRiskAssessment(record.inherentLikelihood, record.inherentImpact);
+          const residualAssessment = getRaidRiskAssessment(record.residualLikelihood, record.residualImpact);
+          return {
+            ...record,
+            inherentScore: inherentAssessment.score,
+            inherentRating: raidRiskRatingOptions.some((option) => option.value === record.inherentRating)
+              ? record.inherentRating
+              : inherentAssessment.rating,
+            residualScore: residualAssessment.score,
+            residualRating: raidRiskRatingOptions.some((option) => option.value === record.residualRating)
+              ? record.residualRating
+              : residualAssessment.rating
+          };
+        }) : [],
+        issues: Array.isArray(records?.issues) ? records.issues : []
+      };
+    }
+
+    function buildRaidDraft(recordType, project) {
+      const commonFields = {
+        id: "",
+        owner: project.projectManager || "",
+        dateRaised: new Date().toISOString().slice(0, 10),
+        raisedBy: currentUserProfile.name || "",
+        workstream: project.department || "",
+        category: "",
+        sourceForum: "",
+        relatedRecordReferences: "",
+        targetDate: "",
+        completionDate: "",
+        evidenceLink: ""
+      };
+
+      if (recordType === "risks") {
+        return {
+          ...commonFields,
+          risk: "",
+          description: "",
+          riskStatus: "Draft",
+          nextRiskReviewDate: "",
+          inherentLikelihood: "",
+          inherentImpact: "",
+          inherentScore: "",
+          inherentRating: "",
+          treatmentStrategy: "",
+          treatmentRationale: "",
+          triggerContingency: "",
+          residualLikelihood: "",
+          residualImpact: "",
+          residualScore: "",
+          residualRating: ""
+        };
+      }
+
+      return {
+        ...commonFields,
+        issue: "",
+        description: "",
+        issueStatus: "New",
+        itemType: "Issue",
+        issueSeverity: "",
+        impactAreas: "",
+        escalationRequired: "",
+        rootCause: "",
+        immediateWorkaround: "",
+        resolutionPlan: "",
+        resolutionSummary: ""
+      };
     }
 
     function LifecycleGovernanceModal({ project, onClose, onSaveLifecycleProject, canReviewPmo }) {
       const [lifecycleRecord, setLifecycleRecord] = useState(null);
       const [activePhase, setActivePhase] = useState("initiation");
       const [lifecycleNotice, setLifecycleNotice] = useState("");
+      const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("lifecycle");
+      const [activeRaidTab, setActiveRaidTab] = useState("risks");
+      const [raidRecords, setRaidRecords] = useState({ risks: [], issues: [] });
+      const [raidEditor, setRaidEditor] = useState(null);
+      const [raidViewer, setRaidViewer] = useState(null);
+      const [raidStatusFilter, setRaidStatusFilter] = useState("all");
+      const [raidNotice, setRaidNotice] = useState("");
 
       useEffect(() => {
         if (!project) {
           setLifecycleRecord(null);
           setActivePhase("initiation");
           setLifecycleNotice("");
+          setActiveWorkspaceTab("lifecycle");
+          setActiveRaidTab("risks");
+          setRaidRecords({ risks: [], issues: [] });
+          setRaidEditor(null);
+          setRaidViewer(null);
+          setRaidStatusFilter("all");
+          setRaidNotice("");
           return;
         }
 
@@ -2040,13 +2439,19 @@
         setLifecycleRecord(record);
         setActivePhase(record.currentPhase);
         setLifecycleNotice("");
-      }, [project]);
+        setActiveWorkspaceTab("lifecycle");
+        setActiveRaidTab("risks");
+        setRaidRecords(normaliseRaidRecords(project.raidRecords));
+        setRaidEditor(null);
+        setRaidViewer(null);
+        setRaidStatusFilter("all");
+        setRaidNotice("");
+      }, [project?.id]);
 
       if (!project || !lifecycleRecord) {
         return <Modal isOpen={false} onClose={onClose} titleId="lifecycleGovernanceTitle" />;
       }
 
-      const projectObjective = project.businessObjective || project.draftFormValues?.projectDescription || "No project description has been added yet.";
       const activePhaseRecord = lifecycleRecord.phases.find((phase) => phase.key === activePhase) || lifecycleRecord.phases[0];
       const activeRelation = getLifecyclePhaseRelation(activePhaseRecord.key, lifecycleRecord.currentPhase);
       const currentPhaseIndex = getLifecyclePhaseIndex(lifecycleRecord.currentPhase);
@@ -2257,20 +2662,213 @@
         setLifecycleNotice(`PMO marked this stage as ${outcome}.`);
       };
 
+      const persistRaidRecords = (nextRecords, notice) => {
+        setRaidRecords(nextRecords);
+        onSaveLifecycleProject(project.id, { raidRecords: nextRecords });
+        setRaidNotice(notice);
+      };
+
+      const openNewRaidRecord = () => {
+        setRaidViewer(null);
+        setRaidEditor({
+          mode: "new",
+          recordType: activeRaidTab,
+          record: buildRaidDraft(activeRaidTab, project)
+        });
+        setRaidNotice("");
+      };
+
+      const openRaidViewer = (record, recordType = activeRaidTab) => {
+        setRaidViewer({ recordType, record });
+      };
+
+      const updateRaidDraftField = (fieldName, value) => {
+        setRaidEditor((current) => {
+          if (!current) return current;
+          const nextRecord = { ...current.record, [fieldName]: value };
+
+          if (current.recordType === "risks") {
+            if (fieldName === "inherentLikelihood" || fieldName === "inherentImpact") {
+              const inherentAssessment = getRaidRiskAssessment(nextRecord.inherentLikelihood, nextRecord.inherentImpact);
+              nextRecord.inherentScore = inherentAssessment.score;
+              nextRecord.inherentRating = inherentAssessment.score ? inherentAssessment.rating : "";
+            }
+            if (fieldName === "residualLikelihood" || fieldName === "residualImpact") {
+              const residualAssessment = getRaidRiskAssessment(nextRecord.residualLikelihood, nextRecord.residualImpact);
+              nextRecord.residualScore = residualAssessment.score;
+              nextRecord.residualRating = residualAssessment.score ? residualAssessment.rating : "";
+            }
+          }
+
+          return { ...current, record: nextRecord };
+        });
+      };
+
+      const saveRaidRecord = () => {
+        if (!raidEditor) return;
+        const { recordType, mode } = raidEditor;
+        const savedRecord = {
+          ...raidEditor.record,
+          id: raidEditor.record.id || `${recordType === "risks" ? "RISK" : "ISSUE"}-${Date.now()}`,
+          updatedAt: new Date().toISOString()
+        };
+        const nextRecords = {
+          ...raidRecords,
+          [recordType]: mode === "new"
+            ? [savedRecord, ...raidRecords[recordType]]
+            : raidRecords[recordType].map((record) => (record.id === savedRecord.id ? savedRecord : record))
+        };
+        persistRaidRecords(nextRecords, `${recordType === "risks" ? "Risk" : "Issue"} saved.`);
+        setRaidEditor(null);
+        setActiveRaidTab(recordType);
+      };
+
+      const deleteRaidRecord = (record, recordType = activeRaidTab) => {
+        const recordLabel = recordType === "risks" ? (record.risk || "this risk") : (record.issue || "this issue");
+        if (!window.confirm(`Delete ${recordLabel}?`)) return;
+        const nextRecords = {
+          ...raidRecords,
+          [recordType]: raidRecords[recordType].filter((item) => item.id !== record.id)
+        };
+        persistRaidRecords(nextRecords, `${recordType === "risks" ? "Risk" : "Issue"} deleted.`);
+        setRaidViewer(null);
+      };
+
+      const editViewedRaidRecord = () => {
+        if (!raidViewer) return;
+        setActiveRaidTab(raidViewer.recordType);
+        setRaidEditor({ mode: "edit", recordType: raidViewer.recordType, record: { ...raidViewer.record } });
+        setRaidViewer(null);
+        setRaidNotice("");
+      };
+
+      const getRaidDetailValue = (field, record) => {
+        const value = record?.[field.name];
+        if (value === undefined || value === null || value === "") return "Not provided";
+        if (field.type === "date") {
+          const date = new Date(`${value}T00:00:00`);
+          return Number.isNaN(date.getTime())
+            ? value
+            : date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+        }
+        if (field.type === "readonly" && field.name.toLowerCase().includes("score")) return `${value} / 25`;
+        return value;
+      };
+
+      const renderRaidDetailField = (field, record) => {
+        const value = getRaidDetailValue(field, record);
+        const isSupportingLink = field.type === "url" && value !== "Not provided";
+        return (
+          <div className={`raid-detail-field ${field.full ? "raid-detail-field-full" : ""}`} key={`view-${field.name}`}>
+            <span>{field.label}</span>
+            {isSupportingLink ? (
+              <a href={value} target="_blank" rel="noreferrer">Open supporting link</a>
+            ) : (
+              <p>{value}</p>
+            )}
+          </div>
+        );
+      };
+
+      const renderRaidField = (field) => {
+        if (!raidEditor) return null;
+        const value = raidEditor.record[field.name] ?? "";
+        const fieldClassName = `raid-field ${field.full ? "raid-field-full" : ""}`;
+
+        if (field.type === "readonly") {
+          return (
+            <div className={fieldClassName} key={field.name}>
+              <span>{field.label}</span>
+              <strong className="raid-readonly-value">{value || "Not assessed"}</strong>
+            </div>
+          );
+        }
+
+        if (field.type === "rating") {
+          return (
+            <div className={fieldClassName} key={field.name}>
+              <span>{field.label}</span>
+              <strong className={`governance-rag-pill raid-rating-pill ${getRaidRatingClass(value)}`}>{value || "Not assessed"}</strong>
+            </div>
+          );
+        }
+
+        return (
+          <label className={fieldClassName} key={field.name}>
+            <span>{field.label}</span>
+            {field.type === "textarea" ? (
+              <textarea value={value} onChange={(event) => updateRaidDraftField(field.name, event.target.value)} />
+            ) : field.type === "select" ? (
+              <select value={value} onChange={(event) => updateRaidDraftField(field.name, event.target.value)}>
+                {field.options.map((option) => <option value={option.value} key={`${field.name}-${option.value || "blank"}`}>{option.label}</option>)}
+              </select>
+            ) : (
+              <input type={field.type || "text"} value={value} onChange={(event) => updateRaidDraftField(field.name, event.target.value)} />
+            )}
+          </label>
+        );
+      };
+
+      const activeRaidRecords = raidRecords[activeRaidTab] || [];
+      const activeRaidLabel = activeRaidTab === "risks" ? "Risk" : "Issue";
+      const activeRaidSections = raidEditor?.recordType === "risks" ? raidRiskFormSections : raidIssueFormSections;
+      const raidStatusField = activeRaidTab === "risks" ? "riskStatus" : "issueStatus";
+      const raidStatusDefaults = activeRaidTab === "risks" ? raidRiskStatusOptions : raidIssueStatusOptions;
+      const raidStatusValues = Array.from(new Set([
+        ...raidStatusDefaults.map((option) => option.value).filter(Boolean),
+        ...activeRaidRecords.map((record) => record[raidStatusField]).filter(Boolean)
+      ]));
+      const filteredRaidRecords = activeRaidRecords.filter((record) => {
+        if (raidStatusFilter === "all") return true;
+        if (raidStatusFilter === "active") {
+          const inactiveStatuses = activeRaidTab === "risks" ? ["Closed", "Realised"] : ["Resolved", "Closed", "Cancelled"];
+          return !inactiveStatuses.includes(record[raidStatusField]);
+        }
+        return record[raidStatusField] === raidStatusFilter;
+      });
+      const canSaveRaidRecord = raidEditor
+        ? String(raidEditor.record[raidEditor.recordType === "risks" ? "risk" : "issue"] || "").trim().length > 0
+        : false;
+
       const activeReadiness = getReadinessState();
+      const closeLifecycleWorkspace = () => {
+        if (raidViewer) {
+          setRaidViewer(null);
+          return;
+        }
+        onClose();
+      };
 
       return (
-        <Modal isOpen={!!project} onClose={onClose} titleId="lifecycleGovernanceTitle" panelClassName="modal-panel-fullscreen">
+        <Modal isOpen={!!project} onClose={closeLifecycleWorkspace} titleId="lifecycleGovernanceTitle" panelClassName="modal-panel-fullscreen">
           <div className="detail-modal lifecycle-modal">
-            <div className="detail-header">
-              <div>
-                <p className="eyebrow">Lifecycle governance</p>
-                <h2 id="lifecycleGovernanceTitle" className="detail-title">{project.name} lifecycle</h2>
-                <p className="section-copy lifecycle-objective"><strong>Project description:</strong> {projectObjective}</p>
+            <div className="lifecycle-workspace-topbar">
+              <h2 id="lifecycleGovernanceTitle" className="visually-hidden">{project.name} governance</h2>
+              <div className="project-detail-tabs lifecycle-workspace-tabs" role="tablist" aria-label="Project governance areas">
+                <button
+                  className={`project-detail-tab ${activeWorkspaceTab === "lifecycle" ? "project-detail-tab-active" : ""}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeWorkspaceTab === "lifecycle"}
+                  onClick={() => { setActiveWorkspaceTab("lifecycle"); setRaidEditor(null); setRaidViewer(null); }}
+                >
+                  Lifecycle
+                </button>
+                <button
+                  className={`project-detail-tab ${activeWorkspaceTab === "raid" ? "project-detail-tab-active" : ""}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeWorkspaceTab === "raid"}
+                  onClick={() => setActiveWorkspaceTab("raid")}
+                >
+                  RAID
+                </button>
               </div>
-              <button className="icon-btn" type="button" aria-label="Close lifecycle governance" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
+              <button className="icon-btn lifecycle-workspace-close" type="button" aria-label="Close lifecycle governance" onClick={onClose}><Icon icon="close" className="icon-only-svg" /></button>
             </div>
 
+            {activeWorkspaceTab === "lifecycle" ? (
+              <>
             <section className="detail-card lifecycle-stage-summary-card">
               <div className="section-header-row">
                 <div className="section-title-row">
@@ -2449,6 +3047,345 @@
                 )}
               </div>
             </section>
+              </>
+            ) : (
+              <section className="detail-card raid-workspace" aria-label="RAID log">
+                <div className="raid-toolbar">
+                  <div className="raid-subtabs" role="tablist" aria-label="RAID record type">
+                    <button
+                      className={`raid-subtab ${activeRaidTab === "risks" ? "raid-subtab-active" : ""}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeRaidTab === "risks"}
+                      onClick={() => { setActiveRaidTab("risks"); setRaidEditor(null); setRaidViewer(null); setRaidStatusFilter("all"); setRaidNotice(""); }}
+                    >
+                      Risks <span>{raidRecords.risks.length}</span>
+                    </button>
+                    <button
+                      className={`raid-subtab ${activeRaidTab === "issues" ? "raid-subtab-active" : ""}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeRaidTab === "issues"}
+                      onClick={() => { setActiveRaidTab("issues"); setRaidEditor(null); setRaidViewer(null); setRaidStatusFilter("all"); setRaidNotice(""); }}
+                    >
+                      Issues <span>{raidRecords.issues.length}</span>
+                    </button>
+                  </div>
+                  {!raidEditor && (
+                    <div className="raid-workspace-actions">
+                      <label className="raid-status-filter">
+                        <span>Status</span>
+                        <select className={`roadmap-filter-select raid-status-filter-select ${getRaidStatusClass(raidStatusFilter === "active" ? "Active" : raidStatusFilter)}`} value={raidStatusFilter} onChange={(event) => setRaidStatusFilter(event.target.value)}>
+                          <option value="all">All statuses</option>
+                          <option value="active">Active only</option>
+                          {raidStatusValues.map((status) => <option value={status} key={`raid-filter-${activeRaidTab}-${status}`}>{status}</option>)}
+                        </select>
+                      </label>
+                      <button className="primary-btn" type="button" onClick={openNewRaidRecord}>New {activeRaidLabel}</button>
+                    </div>
+                  )}
+                </div>
+
+                {raidNotice && !raidEditor && <p className="raid-notice" role="status">{raidNotice}</p>}
+
+                {raidEditor ? (
+                  <div className="raid-editor">
+                    <div className="raid-editor-heading">
+                      <div>
+                        <p className="eyebrow">{raidEditor.mode === "new" ? "New record" : "Edit record"}</p>
+                        <h3>{raidEditor.mode === "new" ? `Add ${activeRaidLabel}` : `Edit ${activeRaidLabel}`}</h3>
+                      </div>
+                      <div className="raid-editor-actions raid-editor-actions-top">
+                        <button className="secondary-btn" type="button" onClick={() => setRaidEditor(null)}>Cancel</button>
+                        <button className="primary-btn" type="button" disabled={!canSaveRaidRecord} onClick={saveRaidRecord}>Save {activeRaidLabel}</button>
+                      </div>
+                    </div>
+
+                    {raidEditor.recordType === "risks" && (
+                      <div className="raid-risk-flow" aria-label="Risk assessment flow">
+                        <span>Inherent Risk</span><span aria-hidden="true">&rarr;</span><span>Risk Treatment</span><span aria-hidden="true">&rarr;</span><span>Residual Risk</span>
+                      </div>
+                    )}
+
+                    <div className="raid-form-sections">
+                      {activeRaidSections.map((section) => (
+                        <section className="raid-form-section" key={`${raidEditor.recordType}-${section.key}`}>
+                          <h4>{section.title}</h4>
+                          <div className="raid-form-grid">
+                            {section.fields.map(renderRaidField)}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+
+                    <div className="raid-editor-actions">
+                      <button className="secondary-btn" type="button" onClick={() => setRaidEditor(null)}>Cancel</button>
+                      <button className="primary-btn" type="button" disabled={!canSaveRaidRecord} onClick={saveRaidRecord}>Save {activeRaidLabel}</button>
+                    </div>
+                  </div>
+                ) : filteredRaidRecords.length ? (
+                  <div className="raid-record-list">
+                    {filteredRaidRecords.some((record) => record.isSample) && (
+                      <p className="raid-sample-note">UAT sample data. These records are stored only in the prototype mock project.</p>
+                    )}
+                    <div className="raid-table-scroll">
+                      {activeRaidTab === "risks" ? (
+                        <table className="raid-table raid-risk-table">
+                          <thead>
+                            <tr>
+                              <th scope="col">Risk</th>
+                              <th scope="col">Risk Description</th>
+                              <th scope="col">Risk Owner</th>
+                              <th scope="col">Inherent Score</th>
+                              <th scope="col">Residual Score</th>
+                              <th scope="col">Risk Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredRaidRecords.map((record) => (
+                              <tr
+                                className="raid-clickable-row"
+                                key={record.id}
+                                tabIndex="0"
+                                aria-label={`View risk: ${record.risk}`}
+                                onClick={() => openRaidViewer(record, "risks")}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    openRaidViewer(record, "risks");
+                                  }
+                                }}
+                              >
+                                <td>
+                                  <strong className="raid-table-title">{record.risk}</strong>
+                                </td>
+                                <td className="raid-description-cell">{record.description || "Not provided"}</td>
+                                <td>{record.owner || "Not provided"}</td>
+                                <td>
+                                  <RaidRiskIndicator score={record.inherentScore} rating={record.inherentRating} compact />
+                                </td>
+                                <td>
+                                  <RaidRiskIndicator score={record.residualScore} rating={record.residualRating} compact />
+                                </td>
+                                <td><span className={`raid-status-pill ${getRaidStatusClass(record.riskStatus)}`}>{record.riskStatus || "Not provided"}</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <table className="raid-table raid-issue-table">
+                          <thead>
+                            <tr>
+                              <th scope="col">Issue</th>
+                              <th scope="col">Issue Description</th>
+                              <th scope="col">Issue Owner</th>
+                              <th scope="col">Issue Severity</th>
+                              <th scope="col">Issue Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredRaidRecords.map((record) => (
+                              <tr
+                                className="raid-clickable-row"
+                                key={record.id}
+                                tabIndex="0"
+                                aria-label={`View issue: ${record.issue}`}
+                                onClick={() => openRaidViewer(record, "issues")}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    openRaidViewer(record, "issues");
+                                  }
+                                }}
+                              >
+                                <td>
+                                  <strong className="raid-table-title">{record.issue}</strong>
+                                </td>
+                                <td className="raid-description-cell">{record.description || "Not provided"}</td>
+                                <td>{record.owner || "Not provided"}</td>
+                                <td><RaidSeverityIndicator severity={record.issueSeverity} compact /></td>
+                                <td><span className={`raid-status-pill ${getRaidStatusClass(record.issueStatus)}`}>{record.issueStatus || "Not provided"}</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="raid-empty-state">
+                    <h3>{activeRaidRecords.length ? `No ${activeRaidTab} match this status` : `No ${activeRaidTab} recorded`}</h3>
+                    <p>{activeRaidRecords.length ? "Choose another status to see more records." : `Add the first ${activeRaidLabel.toLowerCase()} for this project.`}</p>
+                    {activeRaidRecords.length ? (
+                      <button className="secondary-btn" type="button" onClick={() => setRaidStatusFilter("all")}>Clear status filter</button>
+                    ) : (
+                      <button className="primary-btn" type="button" onClick={openNewRaidRecord}>New {activeRaidLabel}</button>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {raidViewer && (
+              <div className="raid-detail-overlay" role="presentation" onClick={() => setRaidViewer(null)}>
+                <section
+                  className="raid-detail-panel"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="raidDetailTitle"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="raid-detail-header">
+                    <div>
+                      <p className="eyebrow">{raidViewer.recordType === "risks" ? "Risk details" : "Issue details"}</p>
+                      <h3 id="raidDetailTitle">{raidViewer.recordType === "risks" ? raidViewer.record.risk : raidViewer.record.issue}</h3>
+                      <div className="raid-detail-badges">
+                        {raidViewer.record.isSample && <span className="raid-sample-badge">UAT sample</span>}
+                        <span className={`raid-status-pill ${getRaidStatusClass(raidViewer.recordType === "risks" ? raidViewer.record.riskStatus : raidViewer.record.issueStatus)}`}>
+                          {raidViewer.recordType === "risks"
+                            ? (raidViewer.record.riskStatus || "Status not provided")
+                            : (raidViewer.record.issueStatus || "Status not provided")}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="raid-detail-header-actions">
+                      <button className="secondary-btn" type="button" onClick={editViewedRaidRecord}>Edit</button>
+                      <button className="raid-detail-delete-btn" type="button" onClick={() => deleteRaidRecord(raidViewer.record, raidViewer.recordType)}>Delete</button>
+                      <button className="icon-btn" type="button" aria-label={`Close ${raidViewer.recordType === "risks" ? "risk" : "issue"} details`} onClick={() => setRaidViewer(null)}><Icon icon="close" className="icon-only-svg" /></button>
+                    </div>
+                  </div>
+
+                  <div className="raid-detail-sections">
+                    {raidViewer.recordType === "risks" ? (
+                      <>
+                        <div className="raid-detail-top-grid">
+                          <section className="raid-detail-section raid-detail-lead-section">
+                            <h4>Risk</h4>
+                            <div className="raid-detail-grid">
+                              {renderRaidDetailField({ name: "risk", label: "Risk Name", full: true }, raidViewer.record)}
+                              {renderRaidDetailField({ name: "description", label: "Risk Description", full: true }, raidViewer.record)}
+                            </div>
+                          </section>
+
+                          <section className="raid-detail-section">
+                            <h4>Risk Exposure</h4>
+                            <div className="raid-exposure-grid">
+                              <article className="raid-exposure-card">
+                                <div className="raid-exposure-label">
+                                  <span>Inherent Risk</span>
+                                  <RaidRiskHelp type="inherent" />
+                                </div>
+                                <RaidRiskIndicator score={raidViewer.record.inherentScore} rating={raidViewer.record.inherentRating} />
+                                <small>Likelihood {raidViewer.record.inherentLikelihood || "-"} · Impact {raidViewer.record.inherentImpact || "-"}</small>
+                              </article>
+                              <article className="raid-exposure-card">
+                                <div className="raid-exposure-label">
+                                  <span>Residual Risk</span>
+                                  <RaidRiskHelp type="residual" />
+                                </div>
+                                <RaidRiskIndicator score={raidViewer.record.residualScore} rating={raidViewer.record.residualRating} />
+                                <small>Likelihood {raidViewer.record.residualLikelihood || "-"} · Impact {raidViewer.record.residualImpact || "-"}</small>
+                              </article>
+                            </div>
+                          </section>
+                        </div>
+
+                        <section className="raid-detail-section">
+                          <h4>Treatment</h4>
+                          <div className="raid-detail-grid">
+                            {[
+                              { name: "treatmentStrategy", label: "Treatment Strategy" },
+                              { name: "treatmentRationale", label: "Risk Treatment / Mitigation", full: true },
+                              { name: "triggerContingency", label: "Trigger / Contingency", full: true }
+                            ].map((field) => renderRaidDetailField(field, raidViewer.record))}
+                          </div>
+                        </section>
+
+                        <section className="raid-detail-section raid-detail-supporting-section">
+                          <h4>Supporting Information</h4>
+                          <div className="raid-detail-grid">
+                            {[
+                              { name: "owner", label: "Risk Owner" },
+                              { name: "riskStatus", label: "Risk Status" },
+                              { name: "dateRaised", label: "Date Raised", type: "date" },
+                              { name: "raisedBy", label: "Raised By" },
+                              { name: "workstream", label: "Workstream / Business Area" },
+                              { name: "category", label: "Category" },
+                              { name: "sourceForum", label: "Source / Forum" },
+                              { name: "targetDate", label: "Target Date", type: "date" },
+                              { name: "nextRiskReviewDate", label: "Next Risk Review Date", type: "date" },
+                              { name: "completionDate", label: "Completion Date", type: "date" },
+                              { name: "relatedRecordReferences", label: "Related Record References", full: true },
+                              { name: "evidenceLink", label: "Evidence / Supporting Link", type: "url", full: true }
+                            ].map((field) => renderRaidDetailField(field, raidViewer.record))}
+                          </div>
+                        </section>
+                      </>
+                    ) : (
+                      <>
+                        <div className="raid-detail-top-grid">
+                          <section className="raid-detail-section raid-detail-lead-section">
+                            <h4>Issue</h4>
+                            <div className="raid-detail-grid">
+                              {renderRaidDetailField({ name: "issue", label: "Issue Name", full: true }, raidViewer.record)}
+                              {renderRaidDetailField({ name: "description", label: "Issue Description", full: true }, raidViewer.record)}
+                            </div>
+                          </section>
+
+                          <section className="raid-detail-section">
+                            <h4>Impact</h4>
+                            <div className="raid-issue-impact-layout">
+                              <article className="raid-exposure-card">
+                                <span>Issue Severity</span>
+                                <RaidSeverityIndicator severity={raidViewer.record.issueSeverity} />
+                              </article>
+                              <div className="raid-detail-grid">
+                                {[
+                                  { name: "impactAreas", label: "Impact Assessment", full: true },
+                                  { name: "rootCause", label: "Root Cause", full: true },
+                                  { name: "escalationRequired", label: "Escalation Required" }
+                                ].map((field) => renderRaidDetailField(field, raidViewer.record))}
+                              </div>
+                            </div>
+                          </section>
+                        </div>
+
+                        <section className="raid-detail-section">
+                          <h4>Resolution</h4>
+                          <div className="raid-detail-grid">
+                            {[
+                              { name: "immediateWorkaround", label: "Immediate Workaround", full: true },
+                              { name: "resolutionPlan", label: "Resolution / Actions and Next Steps", full: true },
+                              { name: "resolutionSummary", label: "Resolution Progress", full: true },
+                              { name: "targetDate", label: "Target Date", type: "date" },
+                              { name: "completionDate", label: "Completion Date", type: "date" }
+                            ].map((field) => renderRaidDetailField(field, raidViewer.record))}
+                          </div>
+                        </section>
+
+                        <section className="raid-detail-section raid-detail-supporting-section">
+                          <h4>Supporting Information</h4>
+                          <div className="raid-detail-grid">
+                            {[
+                              { name: "owner", label: "Issue Owner" },
+                              { name: "issueStatus", label: "Issue Status" },
+                              { name: "dateRaised", label: "Date Raised", type: "date" },
+                              { name: "raisedBy", label: "Raised By" },
+                              { name: "workstream", label: "Workstream / Business Area" },
+                              { name: "category", label: "Category" },
+                              { name: "sourceForum", label: "Source / Forum" },
+                              { name: "itemType", label: "Item Type" },
+                              { name: "relatedRecordReferences", label: "Related Record References", full: true },
+                              { name: "evidenceLink", label: "Evidence / Supporting Link", type: "url", full: true }
+                            ].map((field) => renderRaidDetailField(field, raidViewer.record))}
+                          </div>
+                        </section>
+                      </>
+                    )}
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         </Modal>
       );
